@@ -28,6 +28,7 @@ export const AIRequestSchema = z
             text: z.string().max(1500),
             rect: z.tuple([z.number(),z.number(),z.number(),z.number()]).optional(),
             order: z.number().int().min(0).optional(),
+            complete: z.boolean().optional(),
             field: z.object({ type: z.enum(['rate','quantity','charge','subtotal','total','number','text']), label:z.string().max(100),row:z.string().max(60),column:z.string().max(100) }).strict().optional(),
           })
           .strict(),

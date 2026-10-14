@@ -41,7 +41,7 @@ for(const model of ['openai/gpt-oss-20b','openai/gpt-oss-120b']){
     results.push({model,case:c.name,passed,finish:data.choices?.[0]?.finish_reason,tokens:data.usage?.total_tokens,
       limits:{requests:response.headers.get('x-ratelimit-limit-requests'),tokensPerMinute:response.headers.get('x-ratelimit-limit-tokens')},
       // These proposals contain synthetic test content only.
-      proposal:analysed||raw});
+      rawProposal:raw,proposal:analysed||raw});
   }
 }
 mkdirSync('tests/evidence',{recursive:true});

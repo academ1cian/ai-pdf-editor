@@ -1,7 +1,7 @@
 import type { DocumentModel, Rect } from '../engine/model';
 export type FieldType = 'rate' | 'quantity' | 'charge' | 'subtotal' | 'total' | 'number' | 'text';
 export interface ContextBlock {
-  id: string; page: number; text: string; rect?: Rect; order?: number;
+  id: string; page: number; text: string; rect?: Rect; order?: number; complete?: boolean;
   field?: { type: FieldType; label: string; row: string; column: string };
 }
 const number = /^[$£€]?-?\d[\d,]*(?:\.\d+)?%?$/;
@@ -34,5 +34,5 @@ export function buildContext(model: DocumentModel, instruction: string, currentP
     if(chosen.length>=50 || size+cost>11000) continue;
     chosen.push(b); size+=cost;
   }
-  return chosen.sort((a,b)=>a.page-b.page || (a.rect[1]-b.rect[1]) || a.rect[0]-b.rect[0]).map(b=>({id:b.id,page:b.page,text:b.text,rect:b.rect,order:b.order,field:b.field}));
+  return chosen.sort((a,b)=>a.page-b.page || (a.rect[1]-b.rect[1]) || a.rect[0]-b.rect[0]).map(b=>({id:b.id,page:b.page,text:b.text,rect:b.rect,order:b.order,field:b.field,complete:chosen.length===blocks.length && blocks.every(v=>v.text.length<1500)}));
 }

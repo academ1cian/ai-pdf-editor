@@ -37,7 +37,7 @@ export function validateAnalysis(plan: AIPlan, blocks: ContextBlock[], instructi
         source.some(s=>s.field?.type==='rate') && source.some(s=>s.field?.type==='quantity') &&
         source.every(s=>s.page===b.page && s.field?.row===b.field?.row);
       const allCharges=blocks.filter(s=>s.field?.type==='charge');
-      const sum=e.calculation.operation==='sum' && ['total','subtotal'].includes(b.field?.type||'') &&
+      const sum=blocks.every(s=>s.complete===true) && e.calculation.operation==='sum' && ['total','subtotal'].includes(b.field?.type||'') &&
         source.every(s=>s.field?.type==='charge' && s.page===b.page) &&
         allCharges.length===source.length && allCharges.every(s=>source.includes(s));
       if(!product&&!sum) return clarify('Which line items, quantities, and fees make up the total? The arithmetic relationship is not established.');

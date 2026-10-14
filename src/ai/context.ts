@@ -9,14 +9,14 @@ const numeric=/^[$£€]?-?\d[\d,]*(?:\.\d+)?%?$/;
 const date=/^(?:\d{1,2}[/-]){2}\d{2,4}$/;
 const feeWords=/\b(fee|unl|unload(?:ing)?|fuel|surcharge|toll|accessorial|detention|tax|handling|additional)\b/i;
 export function labelType(label:string):FieldType|undefined {
-  if(/^(?:grand\s+)?total(?:\s+(?:amount|due))?$|^balance|^amount\s+due/i.test(label))return 'total';
+  if(/^(?:(?:grand\s+)?total(?:\s+(?:amount|due))?|balance(?:\s+due)?|amount\s+due)$/i.test(label))return 'total';
   if(/^subtotal$/i.test(label))return 'subtotal';
-  if(feeWords.test(label))return 'fee';
+  if(feeWords.test(label)&&label.length<=32&&!/\d|[.!;:]/.test(label)&&!/^no\b|^without\b/i.test(label)&&label.split(/\s+/).length<=4)return 'fee';
   if(/^(?:unit\s*(?:price|cost)|rate)$/i.test(label))return 'rate';
   if(/^(?:qty|quantity|units)$/i.test(label))return 'quantity';
   if(/^weight$/i.test(label))return 'weight';
   if(/^(?:charges?|amount|line\s+total)$/i.test(label))return 'charge';
-  if(/\bdate\b/i.test(label))return 'date';
+  if(/\bdate\b/i.test(label)&&label.length<=40&&!/\d|[.!;]/.test(label))return 'date';
   if(/^invoice(?:\s*(?:no\.?|number|#))?$/i.test(label))return 'invoice_id';
 }
 export function buildContext(model:DocumentModel,instruction:string,currentPage:number):ContextBlock[] {
@@ -42,7 +42,9 @@ export function buildContext(model:DocumentModel,instruction:string,currentPage:
       if(!numeric.test(value)&&!date.test(value)){
         const re=/(?:\d{1,2}[/-]){2}\d{2,4}|[$£€]?-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{1,6})?%?/g;
         for(const m of line.text.slice(r.start,r.end).matchAll(re)){
-          const prefix=line.text.slice(r.start,r.start+m.index!).trim();
+          const at=r.start+m.index!,following=at+m[0].length;
+          if(/[A-Za-z]/.test(line.text[at-1]||'')||/[A-Za-z]/.test(line.text[following]||''))continue;
+          const prefix=line.text.slice(r.start,at).trim();
           if(prefix&&labelType(prefix))add(r.start,r.start+m.index!);
           add(r.start+m.index!,r.start+m.index!+m[0].length);
         }

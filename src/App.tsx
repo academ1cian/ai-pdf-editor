@@ -84,7 +84,7 @@ export default function App() {
   const [draftTargets, setDraftTargets] = useState<Target[]>([]);
   const [bulkText, setBulkText] = useState('');
   const draggedSelection = useRef(false);
-  const dragStart = useRef<{line:string;start:number;end:number;x:number;y:number}>();
+  const dragStart = useRef<{line:string;start:number;end:number;x:number;y:number} | undefined>(undefined);
   const [tab, setTab] = useState<'manual' | 'ai'>('manual');
   const [instruction, setInstruction] = useState('');
   const [config, setConfig] = useState<Config>({

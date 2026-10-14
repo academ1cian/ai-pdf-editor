@@ -227,3 +227,32 @@ await copyFile(
   'tests/fixtures/LICENSE-Liberation.txt',
 );
 console.log(`Generated ${manifest.length} distinct synthetic fixtures.`);
+
+const batchDoc = await PDFDocument.create();
+const batchRegular = await batchDoc.embedFont(StandardFonts.Helvetica);
+const batchBold = await batchDoc.embedFont(StandardFonts.HelveticaBold);
+for (let n=0;n<3;n++) {
+  const p=batchDoc.addPage([612,792]);
+  p.drawText('PROJECT OFFICE / DOCUMENT CONTROL', {x:48,y:744,size:11,font:batchBold});
+  p.drawText('INVOICE', {x:412,y:742,size:13,font:batchBold});
+  p.drawText('0089033', {x:476,y:742,size:9.8,font:batchBold});
+  p.drawText('DATE 10/13/2026', {x:458,y:724,size:9.8,font:batchBold});
+  p.drawText('ORDER NUMBER 0089033', {x:417,y:707,size:9.8,font:batchBold});
+  p.drawText('BILL TO', {x:48,y:665,size:9,font:batchBold});
+  p.drawText('Project Office', {x:48,y:644,size:12,font:batchRegular});
+  p.drawText('Document review and delivery', {x:48,y:623,size:11,font:batchRegular});
+  p.drawText('DESCRIPTION                         RATE         TOTAL', {x:48,y:565,size:10,font:batchBold});
+  for(let i=0;i<4;i++) p.drawLine({start:{x:44,y:582-i*27},end:{x:565,y:582-i*27},thickness:.4});
+  p.drawText('Document preparation', {x:48,y:539,size:10,font:batchRegular});
+  p.drawText('1205.00', {x:458,y:539,size:9.8,font:batchBold});
+  p.drawText('90.00', {x:530,y:539,size:9.8,font:batchBold});
+  p.drawText('Review required', {x:48,y:448,size:12,font:batchRegular});
+  p.drawText('Delivery pending', {x:48,y:426,size:12,font:batchRegular});
+  p.drawText('Keep this reference unchanged: ARCHIVE-42', {x:48,y:250,size:10,font:batchRegular});
+  p.drawText(`Page ${n+1} / Synthetic invoice. No real business or payment data.`, {x:48,y:70,size:9,font:batchRegular});
+}
+const batchBytes=await batchDoc.save();
+await writeFile('tests/fixtures/32-batch-invoice.pdf',batchBytes);
+await writeFile('public/batch-sample.pdf',batchBytes);
+manifest.push({id:'32-batch-invoice',target:'0089033',replacement:'1000',page:0,occurrence:0,expected:'PASS',category:'dense-invoice-batch'});
+await writeFile('tests/fixtures/manifest.json',JSON.stringify(manifest,null,2)+'\n');

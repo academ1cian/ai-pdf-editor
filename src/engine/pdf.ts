@@ -1,6 +1,8 @@
 import * as mupdf from 'mupdf';
 import {
-  findTargets,
+  targetFromRange,
+  glyphsForTarget,
+  type BatchProposal,
   normalize,
   overlaps,
   type DocumentModel,
@@ -143,8 +145,14 @@ function extractPage(page: mupdf.PDFPage, index: number): PageModel {
     throw new Error('A page contains too much text to process safely.');
   return { index, bounds, lines, warnings: [...new Set(warnings)] };
 }
-function extract(doc: mupdf.PDFDocument): DocumentModel {
-  const model: DocumentModel = { pages: [], warnings: documentWarnings(doc) };
+function revision(bytes: Uint8Array): string {
+  // Snapshot identity for stale-selection detection; geometry/text are also re-resolved.
+  let a = 2166136261, b = 0x9e3779b9;
+  for (const byte of bytes) { a = Math.imul(a ^ byte, 16777619); b = Math.imul(b ^ byte, 2246822519); }
+  return `${bytes.length}-${(a >>> 0).toString(16)}-${(b >>> 0).toString(16)}`;
+}
+function extract(doc: mupdf.PDFDocument, snapshot?: string): DocumentModel {
+  const model: DocumentModel = { revision: snapshot, pages: [], warnings: documentWarnings(doc) };
   let total = 0;
   for (let i = 0; i < doc.countPages(); i++) {
     const page = doc.loadPage(i);
@@ -165,7 +173,7 @@ function extract(doc: mupdf.PDFDocument): DocumentModel {
 export function inspectPDF(bytes: Uint8Array): DocumentModel {
   const doc = openPDF(bytes);
   try {
-    return extract(doc);
+    return extract(doc, revision(bytes));
   } finally {
     doc.destroy();
   }
@@ -175,17 +183,12 @@ function resolve(
   model: DocumentModel,
   target: Target,
 ): { line: Line; glyphs: Glyph[]; target: Target } {
-  const actual = findTargets(model, target.original).find(
-    (t) =>
-      t.id === target.id &&
-      t.page === target.page &&
-      t.line === target.line &&
-      t.start === target.start &&
-      t.end === target.end,
-  );
-  if (!actual) throw new Error('The selected text changed. Find it again before applying.');
-  const line = model.pages[actual.page].lines.find((l) => l.id === actual.line)!;
-  return { line, glyphs: line.glyphs.slice(actual.start, actual.end), target: actual };
+  if (target.revision !== model.revision) throw new Error('This selection belongs to an older document version. Select it again.');
+  const actual = targetFromRange(model, target.page, target.line, target.start, target.end);
+  if (!actual || actual.id !== target.id || normalize(actual.original) !== normalize(target.original))
+    throw new Error('The selected text changed. Find it again before applying.');
+  const line = model.pages[actual.page].lines.find(l => l.id === actual.line)!;
+  return { line, glyphs: glyphsForTarget(line, actual), target: actual };
 }
 function auditPage(page: mupdf.PDFPage): string | undefined {
   let issue: string | undefined;
@@ -315,7 +318,7 @@ function check(doc: mupdf.PDFDocument, model: DocumentModel, op: Operation): Pro
         throw new Error('This text crosses the page edge.');
       for (const l of pageModel.lines)
         for (let i = 0; i < l.glyphs.length; i++) {
-          if (l.id === line.id && i >= target.start && i < target.end) continue;
+          if (l.id === line.id && glyphs.includes(l.glyphs[i])) continue;
           if (overlaps(target.rect, l.glyphs[i].rect))
             throw new Error('The selected text overlaps neighboring text.');
         }
@@ -339,7 +342,7 @@ function check(doc: mupdf.PDFDocument, model: DocumentModel, op: Operation): Pro
 export function proposePDF(bytes: Uint8Array, op: Operation): Proposal {
   const doc = openPDF(bytes);
   try {
-    return check(doc, extract(doc), op);
+    return check(doc, extract(doc, revision(bytes)), op);
   } finally {
     doc.destroy();
   }
@@ -387,7 +390,7 @@ function pixels(page: mupdf.PDFPage) {
     p.destroy();
   }
 }
-function compare(before: mupdf.PDFPage, after: mupdf.PDFPage, allowed?: Rect) {
+function compare(before: mupdf.PDFPage, after: mupdf.PDFPage, allowed: Rect[] = []) {
   const a = pixels(before),
     b = pixels(after);
   if (a.width !== b.width || a.height !== b.height || a.n !== b.n)
@@ -403,13 +406,9 @@ function compare(before: mupdf.PDFPage, after: mupdf.PDFPage, allowed?: Rect) {
       }
       if (delta > 12) {
         changed++;
-        if (
-          !allowed ||
-          x < Math.floor(allowed[0] * 1.5) - 2 ||
-          x > Math.ceil(allowed[2] * 1.5) + 2 ||
-          y < Math.floor(allowed[1] * 1.5) - 2 ||
-          y > Math.ceil(allowed[3] * 1.5) + 2
-        )
+        if (!allowed.some(r =>
+          x >= Math.floor(r[0] * 1.5) - 2 && x <= Math.ceil(r[2] * 1.5) + 2 &&
+          y >= Math.floor(r[1] * 1.5) - 2 && y <= Math.ceil(r[3] * 1.5) + 2))
           outside++;
       }
     }
@@ -436,183 +435,166 @@ function features(page: mupdf.PDFPage): string {
 function bucketKey(g: Glyph, x = Math.floor(g.origin[0]), y = Math.floor(g.origin[1])) {
   return `${g.text}|${g.font}|${x}|${y}`;
 }
+
+function preflight(doc: mupdf.PDFDocument, model: DocumentModel, operations: Operation[]): BatchProposal {
+  if (!Array.isArray(operations) || !operations.length || operations.length > 40)
+    return {status: 'UNSUPPORTED', operations: [], message: 'Choose between 1 and 40 changes per batch.'};
+  const proposals = operations.map(op => check(doc, model, op));
+  for (let i = 0; i < proposals.length; i++)
+    for (let j = 0; j < i; j++) {
+      const a = proposals[i].target, b = proposals[j].target;
+      if (a.page === b.page && (a.id === b.id ||
+        (a.line === b.line && a.start < b.end && a.end > b.start) || overlaps(a.rect, b.rect, 0.01))) {
+        proposals[i] = {...proposals[i], status: 'UNSUPPORTED', message: `Conflicts with change ${j + 1}: duplicate or overlapping selection.`};
+        proposals[j] = {...proposals[j], status: 'UNSUPPORTED', message: `Conflicts with change ${i + 1}: duplicate or overlapping selection.`};
+      }
+    }
+  const failed = proposals.findIndex(p => p.status !== 'SAFE_TO_APPLY');
+  return {operations: proposals, status: failed < 0 ? 'SAFE_TO_APPLY' : 'UNSUPPORTED',
+    message: failed < 0 ? 'All changes fit. The combined PDF will be validated before committing.' :
+      `Change ${failed + 1} (page ${proposals[failed].target.page + 1}): ${proposals[failed].message}`};
+}
+export function proposeBatchPDF(bytes: Uint8Array, operations: Operation[]): BatchProposal {
+  const doc = openPDF(bytes);
+  try { return preflight(doc, extract(doc, revision(bytes)), operations); }
+  finally { doc.destroy(); }
+}
 export function applyPDF(bytes: Uint8Array, op: Operation): EditResult {
+  return applyBatchPDF(bytes, [op]);
+}
+export function applyBatchPDF(bytes: Uint8Array, operations: Operation[]): EditResult {
   const doc = openPDF(bytes);
   const arena = new Arena();
   let reopened: mupdf.PDFDocument | undefined;
   try {
-    const model = extract(doc);
-    const proposal = check(doc, model, op);
-    if (proposal.status !== 'SAFE_TO_APPLY') throw new Error(proposal.message);
-    const { target, glyphs } = resolve(model, proposal.target);
-    const first = glyphs[0];
-    const beforeFeatures: string[] = [];
-    for (let i = 0; i < doc.countPages(); i++) {
-      const p = doc.loadPage(i);
-      try {
-        beforeFeatures.push(features(p));
-      } finally {
-        p.destroy();
+    const model = extract(doc, revision(bytes));
+    const batch = preflight(doc, model, operations);
+    if (batch.status !== 'SAFE_TO_APPLY') throw new Error(batch.message);
+    const resolved = batch.operations.map((op, index) => ({...op, ...resolve(model, op.target), index}));
+    const beforeFeatures = model.pages.map(p => {
+      const page = doc.loadPage(p.index);
+      try { return features(page); } finally { page.destroy(); }
+    });
+    // All geometry and glyph references above come from the same unmodified snapshot.
+    for (const pageModel of model.pages) {
+      const edits = resolved.filter(op => op.target.page === pageModel.index);
+      if (!edits.length) continue;
+      const page = arena.own(doc.loadPage(pageModel.index));
+      const obj = arena.own(page.getObject());
+      const annotations = arena.own(obj.get('Annots'));
+      const preservedAnnotations = arena.own(doc.newArray());
+      if (!annotations.isNull()) annotations.forEach(an => { arena.own(an); preservedAnnotations.push(an); });
+      for (const edit of edits) {
+        const redact = arena.own(page.createAnnotation('Redact'));
+        const r = edit.target.rect;
+        redact.setRect([r[0] + 0.1, r[1] + 0.1, r[2] - 0.1, r[3] - 0.1]);
+        redact.update();
       }
+      // Applying once per page avoids rewriting inserted replacements or invalidating later targets.
+      page.applyRedactions(false, mupdf.PDFPage.REDACT_IMAGE_NONE,
+        mupdf.PDFPage.REDACT_LINE_ART_NONE, mupdf.PDFPage.REDACT_TEXT_REMOVE);
+      if (!annotations.isNull()) obj.put('Annots', preservedAnnotations);
+      const oldResources = arena.own(obj.getInheritable('Resources'));
+      const resources = arena.own(doc.newDictionary());
+      oldResources.forEach((v,k) => {arena.own(v); resources.put(k,v);});
+      const fonts = arena.own(doc.newDictionary());
+      arena.own(oldResources.get('Font')).forEach((v,k) => {arena.own(v); fonts.put(k,v);});
+      const fontKeys = new Map<string, string>();
+      let suffix = 0;
+      for (const {glyphs} of edits) {
+        const fontName = glyphs[0].font;
+        if (fontKeys.has(fontName)) continue;
+        let key = 'EditorFont';
+        while (!arena.own(fonts.get(key)).isNull()) key = `EditorFont${++suffix}`;
+        fonts.put(key, arena.own(doc.addSimpleFont(arena.own(new mupdf.Font(fontName)))));
+        fontKeys.set(fontName, key);
+      }
+      resources.put('Font', fonts);
+      obj.put('Resources', resources);
+      const oldContents = arena.own(obj.get('Contents'));
+      const contents = arena.own(doc.newArray());
+      contents.push(arena.own(doc.addStream('q\n', {})));
+      if (oldContents.isArray()) oldContents.forEach(v => {arena.own(v); contents.push(v);});
+      else if (!oldContents.isNull()) contents.push(oldContents);
+      const matrix = mupdf.Matrix.invert(page.getTransform());
+      const streams = edits.map(edit => {
+        const first = edit.glyphs[0];
+        const x = first.origin[0]*matrix[0] + first.origin[1]*matrix[2] + matrix[4];
+        const y = first.origin[0]*matrix[1] + first.origin[1]*matrix[3] + matrix[5];
+        const escaped = edit.replacement.replace(/[\\()]/g, '\\$&');
+        const color = first.color.length === 1 ? `${first.color[0]} g` : `${first.color.join(' ')} rg`;
+        return `q\nBT /${fontKeys.get(first.font)} ${first.size} Tf ${color} 1 0 0 1 ${x} ${y} Tm (${escaped}) Tj ET\nQ\n`;
+      });
+      contents.push(arena.own(doc.addStream('\nQ\n' + streams.join(''), {})));
+      obj.put('Contents', contents);
     }
-    const page = arena.own(doc.loadPage(target.page));
-    const pageObject = arena.own(page.getObject());
-    const annotations = arena.own(pageObject.get('Annots'));
-    const preservedAnnotations = arena.own(doc.newArray());
-    if (!annotations.isNull())
-      annotations.forEach((an) => {
-        arena.own(an);
-        preservedAnnotations.push(an);
-      });
-    const redact = arena.own(page.createAnnotation('Redact'));
-    redact.setRect([
-      target.rect[0] + 0.1,
-      target.rect[1] + 0.1,
-      target.rect[2] - 0.1,
-      target.rect[3] - 0.1,
-    ]);
-    redact.update();
-    page.applyRedactions(
-      false,
-      mupdf.PDFPage.REDACT_IMAGE_NONE,
-      mupdf.PDFPage.REDACT_LINE_ART_NONE,
-      mupdf.PDFPage.REDACT_TEXT_REMOVE,
-    );
-    if (!annotations.isNull()) pageObject.put('Annots', preservedAnnotations);
-    const obj = arena.own(page.getObject());
-    const oldResources = arena.own(obj.getInheritable('Resources'));
-    const resources = arena.own(doc.newDictionary());
-    oldResources.forEach((v, k) => {
-      arena.own(v);
-      resources.put(k, v);
-    });
-    const oldFonts = arena.own(oldResources.get('Font'));
-    const fonts = arena.own(doc.newDictionary());
-    oldFonts.forEach((v, k) => {
-      arena.own(v);
-      fonts.put(k, v);
-    });
-    let fontKey = 'EditorFont';
-    let suffix = 0;
-    while (!arena.own(fonts.get(fontKey)).isNull()) fontKey = `EditorFont${++suffix}`;
-    fonts.put(fontKey, arena.own(doc.addSimpleFont(arena.own(new mupdf.Font(first.font)))));
-    resources.put('Font', fonts);
-    obj.put('Resources', resources);
-    const oldContents = arena.own(obj.get('Contents'));
-    const contents = arena.own(doc.newArray());
-    contents.push(arena.own(doc.addStream('q\n', {})));
-    if (oldContents.isArray())
-      oldContents.forEach((v) => {
-        arena.own(v);
-        contents.push(v);
-      });
-    else if (!oldContents.isNull()) contents.push(oldContents);
-    // Reset all inherited graphics state before inserting actual page text (not an annotation).
-    const matrix = mupdf.Matrix.invert(page.getTransform());
-    const x = first.origin[0] * matrix[0] + first.origin[1] * matrix[2] + matrix[4];
-    const y = first.origin[0] * matrix[1] + first.origin[1] * matrix[3] + matrix[5];
-    const escaped = op.replacement.replace(/[\\()]/g, '\\$&');
-    const stream = `\nQ\nq\nBT /${fontKey} ${first.size} Tf ${first.color.join(' ')} rg 1 0 0 1 ${x} ${y} Tm (${escaped}) Tj ET\nQ\n`;
-    contents.push(arena.own(doc.addStream(stream, {})));
-    obj.put('Contents', contents);
-    const buffer = arena.own(doc.saveToBuffer('garbage=4,compress'));
-    const output = buffer.asUint8Array().slice();
+    const output = arena.own(doc.saveToBuffer('garbage=4,compress')).asUint8Array().slice();
     reopened = openPDF(output);
-    const after = extract(reopened);
-    if (after.pages.length !== model.pages.length)
-      throw new Error('Validation failed: page count changed.');
-    const allBefore = model.pages[target.page].lines.flatMap((l) => l.glyphs);
-    const selected = new Set(glyphs);
-    // PDF extraction may infer spaces in gaps. Preserve actual non-whitespace glyphs and all surrounding pixels.
-    const unaffected = allBefore.filter((g) => !selected.has(g) && g.text.trim());
-    const afterGlyphs = after.pages[target.page].lines.flatMap((l) => l.glyphs);
-    const bag = new Map<string, Glyph[]>();
-    for (const g of afterGlyphs) {
-      const key = bucketKey(g);
-      bag.set(key, [...(bag.get(key) || []), g]);
-    }
-    for (const g of unaffected) {
-      let found = false;
-      for (let dx = -1; dx <= 1 && !found; dx++)
-        for (let dy = -1; dy <= 1 && !found; dy++) {
-          const bucket = bag.get(
-            bucketKey(g, Math.floor(g.origin[0]) + dx, Math.floor(g.origin[1]) + dy),
-          );
-          const at = bucket?.findIndex(
-            (a) =>
-              Math.abs(a.origin[0] - g.origin[0]) < 0.15 &&
-              Math.abs(a.origin[1] - g.origin[1]) < 0.15 &&
-              Math.abs(a.size - g.size) < 0.01,
-          );
-          if (bucket && at !== undefined && at >= 0) {
-            bucket.splice(at, 1);
-            found = true;
-          }
-        }
-      if (!found) throw new Error('Validation failed: neighboring text changed.');
-    }
-    const inserted = afterGlyphs.filter((g) => overlaps(g.rect, target.rect));
-    const regionText = inserted
-      .sort((a, b) => a.origin[0] - b.origin[0])
-      .map((g) => g.text)
-      .join('');
-    if (normalize(regionText) !== op.replacement)
-      throw new Error(
-        'Validation failed: replacement or original-text removal could not be verified.',
-      );
-    if (
-      afterGlyphs.filter((g) => g.text.trim()).length !==
-      unaffected.length + op.replacement.replace(/\s/g, '').length
-    )
-      throw new Error('Validation failed: unexpected text was added or removed.');
-    const original = openPDF(bytes);
-    let changedPixels = 0,
-      outsidePixels = 0;
-    try {
-      for (let i = 0; i < model.pages.length; i++) {
-        const a = original.loadPage(i),
-          b = reopened.loadPage(i);
-        try {
-          if (features(b) !== beforeFeatures[i])
-            throw new Error('Validation failed: links or page features changed.');
-          const diff = compare(a, b, i === target.page ? target.rect : undefined);
-          changedPixels += diff.changed;
-          outsidePixels += diff.outside;
-        } finally {
-          a.destroy();
-          b.destroy();
-        }
+    const after = extract(reopened, revision(output));
+    if (after.pages.length !== model.pages.length) throw new Error('Validation failed: page count changed. No changes committed.');
+    // Match preserved glyphs as a multiset, independently of extraction/content-stream order.
+    for (const pageModel of model.pages) {
+      const edits = resolved.filter(op => op.target.page === pageModel.index);
+      const selected = new Set(edits.flatMap(op => op.glyphs));
+      const unaffected = pageModel.lines.flatMap(l => l.glyphs).filter(g => g.text.trim() && !selected.has(g));
+      const afterGlyphs = after.pages[pageModel.index].lines.flatMap(l => l.glyphs);
+      const bag = new Map<string, Glyph[]>();
+      for (const g of afterGlyphs.filter(g => g.text.trim())) {
+        const key = bucketKey(g); bag.set(key, [...(bag.get(key) || []), g]);
       }
-    } finally {
-      original.destroy();
+      const consume = (g: Glyph) => {
+        for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
+          const bucket = bag.get(bucketKey(g, Math.floor(g.origin[0])+dx, Math.floor(g.origin[1])+dy));
+          const at = bucket?.findIndex(a => Math.abs(a.origin[0]-g.origin[0]) < 0.15 &&
+            Math.abs(a.origin[1]-g.origin[1]) < 0.15 && Math.abs(a.size-g.size) < 0.01 &&
+            a.color.length === g.color.length && a.color.every((c,i) => Math.abs(c-g.color[i]) < 0.01));
+          if (bucket && at !== undefined && at >= 0) {bucket.splice(at,1); return true;}
+        }
+        return false;
+      };
+      for (const g of unaffected)
+        if (!consume(g)) throw new Error(`Validation failed: neighboring text changed on page ${pageModel.index+1} at ${g.origin.map(n => n.toFixed(1)).join(', ')} pt. No changes committed.`);
+      for (const edit of edits) {
+        const first = edit.glyphs[0];
+        const font = arena.own(new mupdf.Font(first.font));
+        let x = first.origin[0];
+        for (const char of edit.replacement) {
+          if (char.trim() && !consume({...first, text: char, origin: [x, first.origin[1]]}))
+            throw new Error(`Change ${edit.index+1} (page ${pageModel.index+1}): replacement text/style could not be verified. No changes committed.`);
+          x += font.advanceGlyph(font.encodeCharacter(char))*first.size;
+        }
+        // Ignore only inferred leading/trailing whitespace in extraction gaps. Internal spaces remain checked.
+        const regionText = afterGlyphs.filter(g => overlaps(g.rect, edit.target.rect) &&
+          g.origin[0] >= first.origin[0]-0.15 && g.origin[0] < x-0.01)
+          .sort((a,b) => a.origin[0]-b.origin[0]).map(g => g.text).join('');
+        if (normalize(regionText).trim() !== edit.replacement.trim())
+          throw new Error(`Change ${edit.index+1} (page ${pageModel.index+1}): replacement or original-text removal could not be verified. No changes committed.`);
+      }
+      if ([...bag.values()].some(items => items.length))
+        throw new Error(`Validation failed: unexpected text on page ${pageModel.index+1}. No changes committed.`);
     }
-    if (outsidePixels)
-      throw new Error(
-        `Validation failed: ${outsidePixels} unexpected pixels changed outside the text area. No edit was committed.`,
-      );
-    return {
-      bytes: output,
-      model: after,
-      validation: {
-        status: 'SAFE_TO_APPLY',
-        pageCount: after.pages.length,
-        changedPixels,
-        outsidePixels,
-        checkedPages: after.pages.length,
-        checks: [
-          'Reopened exported PDF',
-          'Page count preserved',
-          'Replacement searchable in target region',
-          'Original target removed',
-          'Neighboring text positions preserved',
-          'Links and annotations preserved',
-          'All pages compared at 108 dpi; zero unexpected pixels',
-        ],
-      },
-    };
-  } finally {
-    reopened?.destroy();
-    arena.close();
-    doc.destroy();
-  }
+    const original = openPDF(bytes);
+    let changedPixels = 0, outsidePixels = 0;
+    try {
+      for (let i=0; i<model.pages.length; i++) {
+        const a=original.loadPage(i), b=reopened.loadPage(i);
+        try {
+          if (features(b) !== beforeFeatures[i]) throw new Error(`Validation failed: links or page features changed on page ${i+1}. No changes committed.`);
+          const diff = compare(a,b,resolved.filter(op => op.target.page === i).map(op => op.target.rect));
+          changedPixels += diff.changed; outsidePixels += diff.outside;
+          if (diff.outside) throw new Error(`Validation failed: ${diff.outside} unexpected pixels changed on page ${i+1} outside selected text areas. No changes committed.`);
+        } finally {a.destroy(); b.destroy();}
+      }
+    } finally {original.destroy();}
+    return {bytes: output, model: after, validation: {
+      status: 'SAFE_TO_APPLY', pageCount: after.pages.length, changedPixels, outsidePixels,
+      checkedPages: after.pages.length, checks: [
+        'Reopened combined exported PDF', 'Page count preserved',
+        `${resolved.length} replacements searchable in their target regions`,
+        'Original targets removed', 'All unaffected text positions and styles preserved',
+        'Links and annotations preserved', 'All pages compared at 108 dpi; zero unexpected pixels',
+        'All changes validated together; one atomic transaction',
+      ],
+    }};
+  } finally {reopened?.destroy(); arena.close(); doc.destroy();}
 }

@@ -24,10 +24,12 @@ export interface PageModel {
   warnings: string[];
 }
 export interface DocumentModel {
+  revision?: string;
   pages: PageModel[];
   warnings: string[];
 }
 export interface Target {
+  revision?: string;
   id: string;
   page: number;
   line: string;
@@ -78,6 +80,31 @@ export function overlaps(a: Rect, b: Rect, epsilon = 0.15): boolean {
     a[0] < b[2] - epsilon && a[2] > b[0] + epsilon && a[1] < b[3] - epsilon && a[3] > b[1] + epsilon
   );
 }
+export interface BatchProposal {
+  status: Status;
+  operations: Proposal[];
+  message: string;
+}
+export function glyphsForTarget(line: Line, target: Pick<Target, 'start' | 'end'>): Glyph[] {
+  let offset = 0;
+  return line.glyphs.filter(g => {
+    const start = offset;
+    offset += g.text.length;
+    return start >= target.start && offset <= target.end;
+  });
+}
+export function targetFromRange(model: DocumentModel, pageIndex: number, lineId: string, start: number, end: number): Target | undefined {
+  const line = model.pages[pageIndex]?.lines.find(l => l.id === lineId);
+  if (!line || !Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end <= start || end > line.text.length) return;
+  const glyphs = glyphsForTarget(line, {start, end});
+  if (!glyphs.length || glyphs.map(g => g.text).join('') !== line.text.slice(start, end)) return;
+  return {
+    revision: model.revision,
+    id: `${model.revision || ''}:${pageIndex}:${lineId}:${start}:${end}`,
+    page: pageIndex, line: lineId, start, end,
+    original: line.text.slice(start, end), rect: union(glyphs.map(g => g.rect)),
+  };
+}
 export function findTargets(model: DocumentModel, query: string): Target[] {
   if (!query || query.length > 500) return [];
   const needle = normalize(query);
@@ -90,15 +117,8 @@ export function findTargets(model: DocumentModel, query: string): Target[] {
         const start = text.indexOf(needle, from);
         if (start < 0) break;
         const end = start + needle.length;
-        result.push({
-          id: `${page.index}:${line.id}:${start}:${end}`,
-          page: page.index,
-          line: line.id,
-          start,
-          end,
-          original: line.text.slice(start, end),
-          rect: union(line.glyphs.slice(start, end).map((g) => g.rect)),
-        });
+        const target = targetFromRange(model, page.index, line.id, start, end);
+        if (target) result.push(target);
         from = end;
       }
     }

@@ -40,6 +40,8 @@ import {
 } from './engine/model';
 import { AIPlanSchema, type AIPlan } from './ai/schema';
 
+import { buildContext } from './ai/context';
+
 type Config = { enabled: boolean; siteKey?: string; reason?: string };
 type Change = { original: string; replacement: string; page: number; transaction: number };
 type QueuedChange = Operation & { included: boolean };
@@ -103,6 +105,10 @@ export default function App() {
   });
   const [consent, setConsent] = useState(false);
   const [token, setToken] = useState('');
+  const aiSession = useRef(sessionStorage.getItem('pdf-ai-session') || crypto.randomUUID());
+  useEffect(() => { sessionStorage.setItem('pdf-ai-session', aiSession.current); }, []);
+  const [aiClarification, setAiClarification] = useState('');
+  const [aiQuota, setAiQuota] = useState('');
   const [aiEdits, setAiEdits] = useState<AIPlan['edits']>([]);
   const [dragging, setDragging] = useState(false);
   const [privacy, setPrivacy] = useState(false);
@@ -195,6 +201,7 @@ export default function App() {
     setProposal(undefined);
     setSelected(undefined);
     setAiEdits([]);
+    setAiClarification('');
     setDraftTargets([]);
   };
   const load = async (file: File) => {
@@ -366,18 +373,13 @@ export default function App() {
     setBusy('Preparing AI proposals…');
     setError('');
     try {
-      const blocks = model.pages[page].lines
-        .slice(0, 50)
-        .map((l) => ({ id: l.id, page: page + 1, text: l.text.slice(0, 1500) }));
-      let used = 0;
-      const context = blocks.filter((b) => {
-        used += b.text.length;
-        return used <= 12000;
-      });
+      const context = buildContext(model,instruction,page);
+      setAiEdits([]);
+      setAiClarification('');
       const response = await fetch('/api/plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ instruction, blocks: context, turnstileToken: token }),
+        body: JSON.stringify({ instruction, blocks: context, turnstileToken: token, sessionId: aiSession.current }),
         signal: AbortSignal.timeout(30000),
       });
       const body = await response.json();
@@ -387,10 +389,13 @@ export default function App() {
         );
       const plan = AIPlanSchema.parse(body);
       setAiEdits(plan.edits);
+      setAiClarification(plan.clarification || '');
+      const remaining=response.headers.get('X-AI-Remaining-Requests');
+      setAiQuota(remaining && remaining!=='unknown' ? remaining+' requests remain in this session’s application allowance. Groq limits are separate.' : '');
       setNotice(
         plan.edits.length
-          ? 'Select a proposal to check its fit and review it.'
-          : 'No matching edit was proposed. Try a more specific instruction.',
+          ? 'Review the proposed fields, then add related changes to your batch.'
+          : plan.clarification || 'No matching edit was proposed. Try a more specific instruction.',
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : 'AI is unavailable. Use manual editing.');
@@ -1106,7 +1111,7 @@ export default function App() {
                   }}
                 />
                 <p className="hint small">
-                  Keep it within the original space. Empty text removes the selection.
+                  Nearby whitespace and up to 5% smaller type can help it fit. Empty text removes the selection.
                 </p>
                 <button
                   className="primary full"
@@ -1256,6 +1261,7 @@ export default function App() {
                     {batchReview && (
                       <p className="batch-summary" role="status">
                         {batchReview.message}
+                        {batchReview.operations.map((op,i)=><span key={op.target.id} style={{display:'block'}}>Change {i+1}: {op.message}</span>)}
                       </p>
                     )}
                     <button
@@ -1279,7 +1285,7 @@ export default function App() {
                   <h2>A correction, in your words.</h2>
                 </div>
                 <p className="hint">
-                  Describe a change on the current page. AI proposes; you review and approve.
+                  Describe the intended fields or corrections. AI proposes; you review and approve.
                 </p>
                 <label htmlFor="instruction">What would you like to change?</label>
                 <textarea
@@ -1296,8 +1302,7 @@ export default function App() {
                     <>
                       <ShieldCheck size={16} />
                       <span>
-                        Only extracted text from this page (up to 12,000 characters) and your
-                        instruction go to Groq. Your PDF stays here.
+                        Relevant extracted text, page positions, and label/value hints from selected document context (up to 50 lines, about 11,000 characters), plus your instruction, go to Groq. Context may include other pages. Your PDF stays here.
                       </span>
                     </>
                   ) : (
@@ -1307,6 +1312,7 @@ export default function App() {
                     </>
                   )}
                 </div>
+                {config.enabled && model && <details className="hint"><summary>Preview text and layout sent to AI</summary><pre style={{whiteSpace:'pre-wrap',maxHeight:220,overflow:'auto'}}>{JSON.stringify(buildContext(model,instruction,page),null,2)}</pre></details>}
                 {config.enabled && (
                   <>
                     <label className="checkbox-label">
@@ -1315,7 +1321,7 @@ export default function App() {
                         checked={consent}
                         onChange={(e) => setConsent(e.target.checked)}
                       />
-                      I agree to send this page’s text to Groq for a proposal.
+                      I agree to send the displayed document context to Groq for a proposal.
                     </label>
                     <div ref={captcha} className="captcha" />
                   </>
@@ -1335,6 +1341,14 @@ export default function App() {
                   <Sparkles size={15} />
                   Suggest changes
                 </button>
+                {aiClarification && <p className="availability-callout" role="status">{aiClarification} Revise the instruction above; no changes have been queued.</p>}
+                {aiQuota && <p className="hint" role="status">{aiQuota}</p>}
+                {aiEdits.length>0 && <button className="secondary full" disabled={!!busy} onClick={()=>{
+                  if(!model)return;
+                  const targets=aiEdits.map(edit=>findTargets(model,edit.original).filter(t=>t.page===edit.page-1&&t.line===edit.blockId));
+                  if(targets.some((ts,i)=>ts.length!==1||aiEdits[i].ambiguity!=='none')){setError('Resolve the ambiguous fields before adding this plan.');return;}
+                  enqueue(targets.map(ts=>ts[0]),aiEdits.map(e=>e.replacement));setTab('manual');
+                }}>Add all proposals to changes</button>}
                 {aiEdits.map((edit) => (
                   <div className="ai-proposal" key={edit.id}>
                     <span className="micro-label">
@@ -1343,6 +1357,7 @@ export default function App() {
                     </span>
                     <del>{edit.original}</del>
                     <ins>{edit.replacement || '(remove text)'}</ins>
+                    {edit.label && <p className="font-note">{edit.label} · {edit.fieldType}</p>}
                     <p>{edit.explanation}</p>
                     <div className="row-actions">
                       <button
@@ -1573,7 +1588,7 @@ export default function App() {
               not authorized to share.
             </p>
             <p>
-              This version replaces single-line, printable Latin ASCII text in standard Helvetica,
+              This version replaces printable Latin ASCII text with bounded whitespace expansion and up to 5% type reduction, in standard Helvetica,
               Times, and Courier PDF fonts. Replacements must fit the original area. Scans, custom
               or embedded fonts, forms, signed, encrypted, tagged, rotated, clipped, and complex
               documents may be unsupported.

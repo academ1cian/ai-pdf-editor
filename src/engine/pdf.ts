@@ -239,6 +239,56 @@ function auditPage(page: mupdf.PDFPage): string | undefined {
   }
   return issue;
 }
+
+/** Bound local expansion by actual glyphs, vector segments and images. Never move neighbors. */
+function fitRegion(page: mupdf.PDFPage, model: PageModel, glyphs: Glyph[], target: Target) {
+  const first = glyphs[0];
+  const obstacles: Rect[] = model.lines.flatMap(l => l.glyphs)
+    .filter(g => !glyphs.includes(g) && !!g.text.trim()).map(g => g.rect);
+  const addPath = (path: mupdf.Path, ctm: mupdf.Matrix) => {
+    let x = 0, y = 0, sx = 0, sy = 0;
+    const point = (a: number, b: number) => [a * ctm[0] + b * ctm[2] + ctm[4], a * ctm[1] + b * ctm[3] + ctm[5]];
+    const segment = (a: number, b: number) => {
+      const p = point(x,y), q = point(a,b);
+      obstacles.push([Math.min(p[0],q[0])-.5, Math.min(p[1],q[1])-.5, Math.max(p[0],q[0])+.5, Math.max(p[1],q[1])+.5]);
+      x=a; y=b;
+    };
+    path.walk({
+      moveTo: (a,b) => { x=sx=a; y=sy=b; },
+      lineTo: segment,
+      curveTo: (a,b,c,d,e,f) => { segment(a,b); segment(c,d); segment(e,f); },
+      closePath: () => segment(sx,sy),
+    });
+  };
+  const dev = new mupdf.Device({
+    strokePath: (path,_stroke,ctm) => addPath(path,ctm),
+    // Filled paths are conservatively treated as borders, including rectangular fills.
+    fillPath: (path,_evenOdd,ctm) => addPath(path,ctm),
+    fillImage: (_image,ctm) => {
+      const pts = [[0,0],[0,1],[1,0],[1,1]].map(([x,y]) => [x*ctm[0]+y*ctm[2]+ctm[4],x*ctm[1]+y*ctm[3]+ctm[5]]);
+      obstacles.push([Math.min(...pts.map(p=>p[0])),Math.min(...pts.map(p=>p[1])),Math.max(...pts.map(p=>p[0])),Math.max(...pts.map(p=>p[1]))]);
+    },
+  });
+  try { page.runPageContents(dev, mupdf.Matrix.identity); } finally { dev.close(); dev.destroy(); }
+  const numeric = /^[$€£]?-?\d[\d,]*(?:\.\d+)?%?$/.test(target.original.trim());
+  const rightEvidence = numeric && model.lines.some(l => !l.glyphs.some(g => glyphs.includes(g)) &&
+    ((/^(?:-?\d[\d,]*\.?\d*)$/.test(l.text.trim()) && Math.abs(l.rect[2]-target.rect[2])<1 && Math.abs(l.rect[1]-target.rect[1])<100) ||
+    (/^(rate|charges?|amount|total|balance)$/i.test(l.text.trim()) && l.rect[3]<=target.rect[1] && target.rect[1]-l.rect[3]<100 && Math.abs((l.rect[0]+l.rect[2])/2-(target.rect[0]+target.rect[2])/2)<35)));
+  // This is local fitting, not arbitrary page reflow: at most 36 pt beyond the old span.
+  let left = Math.max(model.bounds[0]+1, first.origin[0]-36);
+  let right = Math.min(model.bounds[2]-1, target.rect[2]+36);
+  for (const r of obstacles) {
+    if (r[1]>=target.rect[3] || r[3]<=target.rect[1]) continue;
+    if (r[2]<=target.rect[0]+.15) left=Math.max(left,r[2]+.5);
+    else if (r[0]>=target.rect[2]-.15) right=Math.min(right,r[0]-.5);
+    else if (overlaps(r,target.rect)) {
+      // Interior graphics cannot safely be occupied by new glyphs.
+      left=Math.max(left,first.origin[0]); right=Math.min(right,target.rect[2]);
+    }
+  }
+  return { left, right, rightAligned: rightEvidence };
+}
+
 function check(doc: mupdf.PDFDocument, model: DocumentModel, op: Operation): Proposal {
   let proposal: Proposal = { ...op, status: 'UNSUPPORTED', message: '' };
   try {
@@ -312,12 +362,23 @@ function check(doc: mupdf.PDFDocument, model: DocumentModel, op: Operation): Pro
         if (Math.abs(glyphs[i + 1].origin[0] - glyphs[i].origin[0] - advance) > 0.15)
           throw new Error('Custom text spacing is not supported.');
       }
-      const allowedWidth = target.rect[2] - first.origin[0];
-      proposal = { ...proposal, font: first.font, size: first.size, width, allowedWidth };
-      if (width > allowedWidth + 0.1)
-        throw new Error(
-          `Replacement needs ${width.toFixed(1)} pt; only ${allowedWidth.toFixed(1)} pt is available. Use shorter wording.`,
-        );
+      const region = fitRegion(page, pageModel, glyphs, target);
+      const alignment = region.rightAligned ? 'right' : 'left';
+      const oldWidth = target.rect[2] - first.origin[0];
+      const allowedWidth = region.rightAligned ? target.rect[2]-region.left : region.right-first.origin[0];
+      let size = first.size;
+      let fitting: Proposal['fitting'] = width <= oldWidth+.1 ? 'original' : 'whitespace';
+      if (width > allowedWidth+.1) {
+        const ratio = allowedWidth / width;
+        if (ratio < .95) throw new Error(
+          `Replacement needs ${width.toFixed(1)} pt; ${allowedWidth.toFixed(1)} pt is safely available before a neighbor, border, or local expansion limit. Even a 5% font adjustment cannot fit it. Local reflow is unsupported.`);
+        size = first.size * Math.min(1,ratio);
+        width *= size/first.size;
+        fitting = 'typography';
+      }
+      const x = region.rightAligned ? target.rect[2]-width : first.origin[0];
+      const layoutRect: Rect = [Math.min(target.rect[0],x),target.rect[1],Math.max(target.rect[2],x+width),target.rect[3]];
+      proposal = { ...proposal, font: first.font, size, width, allowedWidth, origin: [x,first.origin[1]], layoutRect, fitting, alignment };
       if (
         target.rect[0] < pageModel.bounds[0] ||
         target.rect[1] < pageModel.bounds[1] ||
@@ -335,7 +396,7 @@ function check(doc: mupdf.PDFDocument, model: DocumentModel, op: Operation): Pro
         ...proposal,
         status: 'SAFE_TO_APPLY',
         message:
-          'Fits the original text area. Same font, size, baseline, and color. Export will be checked before it becomes available.',
+          `${fitting === 'typography' ? 'Typography adjustment: font size '+first.size.toFixed(2)+' → '+size.toFixed(2)+' pt (up to 5% smaller).' : fitting === 'whitespace' ? 'Uses measured adjacent whitespace; neighbors and borders stay fixed.' : 'Preserves original font size and baseline.'} ${alignment === 'right' ? 'Preserves the numeric column’s right edge.' : 'Preserves the left edge.'} Export integrity will be checked before download.`,
       };
     } finally {
       a.close();
@@ -471,7 +532,7 @@ function preflight(
         a.page === b.page &&
         (a.id === b.id ||
           (a.line === b.line && a.start < b.end && a.end > b.start) ||
-          overlaps(a.rect, b.rect, 0.01))
+          overlaps(proposals[i].layoutRect || a.rect, proposals[j].layoutRect || b.rect, 0.01))
       ) {
         proposals[i] = {
           ...proposals[i],
@@ -589,12 +650,13 @@ export function applyBatchPDF(bytes: Uint8Array, operations: Operation[]): EditR
       const matrix = mupdf.Matrix.invert(page.getTransform());
       const streams = edits.map((edit) => {
         const first = edit.glyphs[0];
-        const x = first.origin[0] * matrix[0] + first.origin[1] * matrix[2] + matrix[4];
-        const y = first.origin[0] * matrix[1] + first.origin[1] * matrix[3] + matrix[5];
+        const origin = edit.origin || first.origin;
+        const x = origin[0] * matrix[0] + origin[1] * matrix[2] + matrix[4];
+        const y = origin[0] * matrix[1] + origin[1] * matrix[3] + matrix[5];
         const escaped = edit.replacement.replace(/[\\()]/g, '\\$&');
         const color =
           first.color.length === 1 ? `${first.color[0]} g` : `${first.color.join(' ')} rg`;
-        return `q\nBT /${fontKeys.get(first.font)} ${first.size} Tf ${color} 1 0 0 1 ${x} ${y} Tm (${escaped}) Tj ET\nQ\n`;
+        return `q\nBT /${fontKeys.get(first.font)} ${edit.size || first.size} Tf ${color} 1 0 0 1 ${x} ${y} Tm (${escaped}) Tj ET\nQ\n`;
       });
       contents.push(arena.own(doc.addStream('\nQ\n' + streams.join(''), {})));
       obj.put('Contents', contents);
@@ -646,20 +708,22 @@ export function applyBatchPDF(bytes: Uint8Array, operations: Operation[]): EditR
       for (const edit of edits) {
         const first = edit.glyphs[0];
         const font = arena.own(new mupdf.Font(first.font));
-        let x = first.origin[0];
+        const origin = edit.origin || first.origin;
+        const size = edit.size || first.size;
+        let x = origin[0];
         for (const char of edit.replacement) {
-          if (char.trim() && !consume({ ...first, text: char, origin: [x, first.origin[1]] }))
+          if (char.trim() && !consume({ ...first, size, text: char, origin: [x, origin[1]] }))
             throw new Error(
               `Change ${edit.index + 1} (page ${pageModel.index + 1}): replacement text/style could not be verified. No changes committed.`,
             );
-          x += font.advanceGlyph(font.encodeCharacter(char)) * first.size;
+          x += font.advanceGlyph(font.encodeCharacter(char)) * size;
         }
         // Ignore only inferred leading/trailing whitespace in extraction gaps. Internal spaces remain checked.
         const regionText = afterGlyphs
           .filter(
             (g) =>
-              overlaps(g.rect, edit.target.rect) &&
-              g.origin[0] >= first.origin[0] - 0.15 &&
+              overlaps(g.rect, edit.layoutRect || edit.target.rect) &&
+              g.origin[0] >= origin[0] - 0.15 &&
               g.origin[0] < x - 0.01,
           )
           .sort((a, b) => a.origin[0] - b.origin[0])
@@ -690,7 +754,7 @@ export function applyBatchPDF(bytes: Uint8Array, operations: Operation[]): EditR
           const diff = compare(
             a,
             b,
-            resolved.filter((op) => op.target.page === i).map((op) => op.target.rect),
+            resolved.filter((op) => op.target.page === i).map((op) => op.layoutRect || op.target.rect),
           );
           changedPixels += diff.changed;
           outsidePixels += diff.outside;

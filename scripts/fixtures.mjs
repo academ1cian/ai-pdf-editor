@@ -285,3 +285,21 @@ manifest.push({
 await writeFile('tests/fixtures/manifest.json', JSON.stringify(manifest, null, 2) + '\n');
 
 console.log(`Generated ${manifest.length} distinct synthetic fixtures.`);
+
+// One focused, synthetic invoice for realistic numeric fitting and context regressions.
+{
+  const doc=await PDFDocument.create(),font=await doc.embedFont(StandardFonts.Helvetica);
+  const page=doc.addPage([612,792]);
+  const text=(t,x,y,size=10)=>page.drawText(t,{x,y,size,font});
+  const right=(t,x,y)=>text(t,x-font.widthOfTextAtSize(t,9.8),y,9.8);
+  text('PROJECT OFFICE — SYNTHETIC INVOICE',40,720,14);
+  for(const x of [350,400,470,560])page.drawLine({start:{x,y:440},end:{x,y:560},thickness:.5});
+  for(const y of [440,480,505,530,560])page.drawLine({start:{x:350,y},end:{x:560,y},thickness:.5});
+  text('QTY',360,540);text('RATE',420,540);text('CHARGES',490,540);
+  right('1',380,515);right('1205.00',450,515);right('1205.00',540,515);
+  right('1',380,490);right('90.00',450,490);right('90.00',540,490);
+  text('TOTAL',405,455);right('1295.00',540,455);
+  text('Payment terms: 30 days. Preserve this text.',40,390);
+  const bytes=await doc.save();await writeFile('tests/fixtures/focused-invoice.pdf',bytes);
+  await writeFile('public/focused-invoice.pdf',bytes);
+}

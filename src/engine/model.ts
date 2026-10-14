@@ -49,6 +49,10 @@ export interface Proposal extends Operation {
   size?: number;
   width?: number;
   allowedWidth?: number;
+  origin?: Point;
+  layoutRect?: Rect;
+  fitting?: 'original' | 'whitespace' | 'typography';
+  alignment?: 'left' | 'right';
 }
 export interface Validation {
   status: 'SAFE_TO_APPLY';

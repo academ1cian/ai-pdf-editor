@@ -151,12 +151,14 @@ describe('free proxy and abuse protection', () => {
     expect(r.status).toBe(200);
     expect(await r.json()).toEqual(validPlan);
   });
-  it('reserves global tokens and per-client requests without refunds', () => {
+  it('reserves global tokens and enforces burst limits', () => {
     const time = Date.UTC(2026, 9, 14);
     let u = reserve(undefined, 'a', 100, time).usage;
     u = reserve(u, 'a', 100, time).usage;
-    expect(reserve(u, 'a', 100, time).allowed).toBe(false);
-    expect(reserve(u, 'b', 50000, time).allowed).toBe(false);
+    u = reserve(u, 'a', 100, time).usage;
+    u = reserve(u, 'a', 100, time).usage;
+    expect(reserve(u, 'a', 100, time).reason).toBe('session_minute');
+    expect(reserve(u, 'b', 100000, time).allowed).toBe(false);
     expect(reserve(u, 'a', 100, time + 60000).allowed).toBe(true);
     expect(reserve(u, 'a', 100, time + 86400000).usage.requests).toBe(1);
     expect(reserve(undefined, 'a', -1, time).allowed).toBe(false);

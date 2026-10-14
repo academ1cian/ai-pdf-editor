@@ -1,3 +1,8 @@
-import {defineConfig} from 'vite';
+import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-export default defineConfig({plugins:[react()],build:{target:'esnext'},worker:{format:'es'},optimizeDeps:{exclude:['mupdf']}});
+export default defineConfig({
+  plugins: [react()],
+  build: { target: 'esnext' },
+  worker: { format: 'es' },
+  optimizeDeps: { exclude: ['mupdf'] },
+});

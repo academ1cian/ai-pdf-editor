@@ -19,7 +19,7 @@ it.each(['horizontal','vertical'])('preserves a barely touching %s neighbor duri
   const history=new History(source);
   const output=applyPDF(history.current,op);
   history.commit(output.bytes);
-  expect(findTargets(output.model,direction==='horizontal'?'INVOICE':'REFERENCE')).toHaveLength(1);
+  expect(findTargets(output.model,direction==='horizontal'?'INVOICE':'REFERENCE'), JSON.stringify({before:inspectPDF(source).pages[0].lines.map(l=>l.text),after:output.model.pages[0].lines.map(l=>l.text)})).toHaveLength(1);
   expect(findTargets(output.model,'0089033')).toHaveLength(0);
   expect(findTargets(output.model,'1000')).toHaveLength(1);
   expect(output.validation.outsidePixels).toBe(0);

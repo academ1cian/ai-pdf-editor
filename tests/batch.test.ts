@@ -33,11 +33,11 @@ describe('atomic batch PDF editing',()=>{
   });
   it('applies three distant partial-line changes on one page and independently verifies every replacement',async()=>{
     const before=source.slice();
-    const result=applyBatchPDF(source,[op('0089033','1000'),op('Project Office','Records Team'),op('1205.00','995.00')]);
+    const result=applyBatchPDF(source,[op('0089033','1000'),op('Project Office','Records'),op('1205.00','995.00')]);
     expect(source).toEqual(before);
     const pages=await independent(result.bytes);
     expect(pages).toHaveLength(3);
-    for(const text of ['1000','Records Team','995.00','ARCHIVE-42','90.00']) expect(pages[0]).toContain(text);
+    for(const text of ['1000','Records','995.00','ARCHIVE-42','90.00']) expect(pages[0]).toContain(text);
     expect(pages[0]).not.toContain('1205.00');
     expect(pages[1]).toContain('1205.00');
     expect(result.validation.outsidePixels).toBe(0);
@@ -75,7 +75,7 @@ describe('atomic batch PDF editing',()=>{
     }
   });
   it('rejects stale references even when the selected text survives a prior edit',()=>{
-    const stale=op('Project Office','Records Team');
+    const stale=op('Project Office','Records');
     const output=applyBatchPDF(source,[op('0089033','1000')]);
     expect(()=>applyBatchPDF(output.bytes,[stale])).toThrow(/older document/);
   });
@@ -94,7 +94,7 @@ describe('atomic batch PDF editing',()=>{
     history.commit(applyBatchPDF(history.current,[op('0089033','1000'),op('pending','ready',2)]).bytes);
     expect(history.length).toBe(1);
     expect(history.undo()).toEqual(source);
-    history.commit(applyBatchPDF(history.current,[op('Project Office','Records Team')]).bytes);
+    history.commit(applyBatchPDF(history.current,[op('Project Office','Records')]).bytes);
     expect(history.reset()).toEqual(source);
   });
   it('range targeting supports exact partial lines and rejects partial glyph boundaries',()=>{

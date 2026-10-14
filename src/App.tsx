@@ -23,6 +23,9 @@ import {
 import { PDFClient } from './engine/client';
 import {
   findTargets,
+  targetFromRange,
+  type BatchProposal,
+  type Operation,
   type DocumentModel,
   type Proposal,
   type Target,
@@ -31,7 +34,8 @@ import {
 import { AIPlanSchema, type AIPlan } from './ai/schema';
 
 type Config = { enabled: boolean; siteKey?: string; reason?: string };
-type Change = { original: string; replacement: string; page: number };
+type Change = { original: string; replacement: string; page: number; transaction: number };
+type QueuedChange = Operation & { included: boolean };
 declare global {
   interface Window {
     turnstile?: {
@@ -75,6 +79,11 @@ export default function App() {
   const [proposal, setProposal] = useState<Proposal>();
   const [validation, setValidation] = useState<Validation>();
   const [changes, setChanges] = useState<Change[]>([]);
+  const [queue, setQueue] = useState<QueuedChange[]>([]);
+  const [batchReview, setBatchReview] = useState<BatchProposal>();
+  const [draftTargets, setDraftTargets] = useState<Target[]>([]);
+  const [bulkText, setBulkText] = useState('');
+  const draggedSelection = useRef(false);
   const [tab, setTab] = useState<'manual' | 'ai'>('manual');
   const [instruction, setInstruction] = useState('');
   const [config, setConfig] = useState<Config>({
@@ -175,6 +184,7 @@ export default function App() {
     setProposal(undefined);
     setSelected(undefined);
     setAiEdits([]);
+    setDraftTargets([]);
   };
   const load = async (file: File) => {
     if (busy) return;
@@ -199,6 +209,8 @@ export default function App() {
       setName(file.name);
       setPage(0);
       setChanges([]);
+      setQueue([]);
+      setBatchReview(undefined);
       setValidation(undefined);
       setQuery('');
       setReplacement('');
@@ -242,6 +254,8 @@ export default function App() {
   }, [model, page, scale]);
   const choose = (target: Target) => {
     setSelected(target);
+    setDraftTargets([]);
+    setReplacement(target.original);
     setPage(target.page);
     setProposal(undefined);
   };
@@ -263,7 +277,7 @@ export default function App() {
     setBusy('Applying and validating all pages…');
     setError('');
     try {
-      const result = await getClient().request<{ model: DocumentModel; validation: Validation }>(
+      const result = await getClient().request<{ model: DocumentModel; validation: Validation; edits: number }>(
         'apply',
         proposal,
       );
@@ -275,9 +289,12 @@ export default function App() {
           original: proposal.target.original,
           replacement: proposal.replacement,
           page: proposal.target.page + 1,
+          transaction: result.edits,
         },
       ]);
       setQuery('');
+      setQueue([]);
+      setBatchReview(undefined);
       clearReview();
       setNotice('Edit applied and export validated. Your original file is unchanged.');
     } catch (e) {
@@ -294,7 +311,9 @@ export default function App() {
       try {
         const result = await getClient().request<{ model: DocumentModel }>(type);
         setModel(result.model);
-        setChanges((c) => (type === 'undo' ? c.slice(0, -1) : []));
+        setChanges((c) => (type === 'undo' ? c.filter(item => item.transaction !== c.at(-1)?.transaction) : []));
+        setQueue([]);
+        setBatchReview(undefined);
         clearReview();
         setValidation(undefined);
         setNotice(type === 'undo' ? 'Last edit undone.' : 'Original document restored.');
@@ -389,6 +408,92 @@ export default function App() {
     setSelected(targets[0]);
     await review(targets[0], edit.replacement);
   };
+
+  const enqueue = (targets: Target[], replacements?: string[]) => {
+    if (busy || !targets.length) return;
+    setQueue(current => {
+      const next = [...current];
+      for (let i=0;i<targets.length;i++) {
+        if (next.some(item => item.target.id === targets[i].id)) continue;
+        if (next.length >= 40) break;
+        next.push({target: targets[i], replacement: replacements?.[i] ?? targets[i].original, included: true});
+      }
+      return next;
+    });
+    setBatchReview(undefined);
+    setProposal(undefined);
+    setNotice('Selection added. Edit each replacement below, then review all changes together.');
+  };
+  const editQueue = (id: string, patch: Partial<Pick<QueuedChange,'replacement'|'included'>>) => {
+    setQueue(current => current.map(item => item.target.id === id ? {...item,...patch} : item));
+    setBatchReview(undefined);
+  };
+  const reviewBatch = async () => {
+    if (busy || !queue.some(item => item.included)) return;
+    setBusy('Checking all replacements…');
+    setError('');
+    try {
+      setBatchReview(await getClient().request<BatchProposal>('proposeBatch',
+        queue.filter(item => item.included).map(({target,replacement}) => ({target,replacement}))));
+    } catch(e) {setError((e as Error).message);}
+    finally {setBusy('');}
+  };
+  const applyBatch = async () => {
+    if (busy || batchReview?.status !== 'SAFE_TO_APPLY') return;
+    setBusy('Applying batch and validating all pages…');
+    setError('');
+    try {
+      const operations = queue.filter(item => item.included).map(({target,replacement}) => ({target,replacement}));
+      const result = await getClient().request<{model:DocumentModel;validation:Validation;edits:number}>('applyBatch', operations);
+      setModel(result.model);
+      setValidation(result.validation);
+      setChanges(current => [...current,...operations.map(op => ({
+        original:op.target.original,replacement:op.replacement,page:op.target.page+1,transaction:result.edits,
+      }))]);
+      setQueue([]);
+      setBatchReview(undefined);
+      clearReview();
+      setQuery('');
+      setNotice(`${operations.length} changes applied together and export validated. One Undo reverses the batch.`);
+    } catch(e) {
+      setError((e as Error).message);
+      setBatchReview(undefined);
+    } finally {setBusy('');}
+  };
+  const captureSelection = (add: boolean) => {
+    if (!model || busy) return;
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed || !selection.rangeCount) return;
+    const range = selection.getRangeAt(0);
+    const layer = viewer.current?.querySelector('.text-layer');
+    if (!layer || !layer.contains(range.startContainer) || !layer.contains(range.endContainer)) return;
+    const targets:Target[] = [];
+    for (const line of model.pages[page].lines) {
+      const nodes = Array.from(layer.querySelectorAll<HTMLElement>('[data-line-id]')).filter(el => el.dataset.lineId === line.id);
+      let start = Infinity, end = -1;
+      for (const node of nodes) {
+        if (!range.intersectsNode(node)) continue;
+        const nodeRange = document.createRange();
+        nodeRange.selectNodeContents(node);
+        if (range.compareBoundaryPoints(Range.END_TO_START,nodeRange) >= 0 ||
+            range.compareBoundaryPoints(Range.START_TO_END,nodeRange) <= 0) continue;
+        start = Math.min(start, Number(node.dataset.charStart));
+        end = Math.max(end, Number(node.dataset.charEnd));
+      }
+      const target = targetFromRange(model,page,line.id,start,end);
+      if (target) targets.push(target);
+    }
+    if (!targets.length) return;
+    draggedSelection.current = true;
+    setDraftTargets(targets);
+    setSelected(targets[0]);
+    setQuery(targets.length === 1 ? targets[0].original : '');
+    setReplacement(targets.map(t => t.original).join('\n'));
+    setProposal(undefined);
+    if (add) {enqueue(targets); selection.removeAllRanges();}
+    else setNotice(`${targets.length} exact span${targets.length===1?'':'s'} selected. Use Add to changes to keep them across pages.`);
+  };
+
   const download = async () => {
     setBusy('Preparing download…');
     setError('');
@@ -475,7 +580,7 @@ export default function App() {
           </a>
           <button
             className="primary download"
-            disabled={!changes.length || !!busy}
+            disabled={!changes.length || !!busy || queue.length > 0}
             onClick={download}
           >
             <ArrowDownToLine size={16} />
@@ -569,15 +674,12 @@ export default function App() {
               </div>
               <div className="paper-decoration" aria-hidden="true">
                 <div className="paper-card">
-                  <span>JORDAN EXAMPLE</span>
-                  <small>Product Designer</small>
+                  <span>PROJECT BRIEF</span>
+                  <small>Document review · Revision 02</small>
                   <hr />
-                  <i />
-                  <i />
-                  <i className="short" />
-                  <b>EXPERIENCE</b>
-                  <i />
-                  <i className="medium" />
+                  <p className="paper-copy">Scope, delivery dates, and a clear path to approval.</p>
+                  <b>REVIEW NOTES</b>
+                  <p className="paper-copy">Confirm the final wording.<br />Keep the details in place.</p>
                   <div className="decoration-highlight">
                     Small changes.
                     <br />
@@ -608,7 +710,7 @@ export default function App() {
                       height={pageHeight}
                     />
                   )}
-                  <div className="text-layer" aria-label={`Selectable text on page ${page + 1}`}>
+                  <div className="text-layer" aria-label={`Selectable text on page ${page + 1}`} onMouseUp={e => captureSelection(e.ctrlKey || e.metaKey)}>
                     {currentPage?.lines.map((line) => (
                       <span
                         key={line.id}
@@ -624,13 +726,14 @@ export default function App() {
                           height: (line.rect[3] - line.rect[1]) * scale,
                           fontSize: (line.glyphs[0]?.size || 12) * scale,
                         }}
-                        onClick={() => {
+                        onClick={(e) => {
                           if (busy) return;
+                          if (draggedSelection.current) {draggedSelection.current=false; return;}
                           setQuery(line.text);
                           const ts = findTargets(model, line.text).filter(
                             (t) => t.line === line.id,
                           );
-                          if (ts[0]) choose(ts[0]);
+                          if (ts[0]) {choose(ts[0]); if(e.ctrlKey || e.metaKey) enqueue([ts[0]]);}
                         }}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && !busy) {
@@ -640,21 +743,35 @@ export default function App() {
                           }
                         }}
                       >
-                        {line.text}
+                        {(() => {
+                          let offset=0;
+                          return line.glyphs.map((glyph,i) => {
+                            const start=offset; offset+=glyph.text.length;
+                            return <span key={i} className="text-glyph" data-line-id={line.id}
+                              data-char-start={start} data-char-end={offset}
+                              style={{left:(glyph.rect[0]-line.rect[0])*scale,
+                                top:(glyph.rect[1]-line.rect[1])*scale,
+                                width:(glyph.rect[2]-glyph.rect[0])*scale,
+                                height:(glyph.rect[3]-glyph.rect[1])*scale,
+                                fontSize:glyph.size*scale,
+                                fontFamily:glyph.font.includes('Courier')?'Courier New, monospace':glyph.font.includes('Times')?'Times New Roman, serif':'Arial, sans-serif',
+                                fontWeight:glyph.font.includes('Bold')?700:400,
+                                fontStyle:/Italic|Oblique/.test(glyph.font)?'italic':'normal',
+                              }}>{glyph.text}</span>;
+                          });
+                        })()}
                       </span>
                     ))}
                   </div>
-                  {selected?.page === page && (
-                    <div
-                      className="target-highlight"
-                      style={{
-                        left: (selected.rect[0] - (bounds?.[0] || 0)) * scale,
-                        top: (selected.rect[1] - (bounds?.[1] || 0)) * scale,
-                        width: (selected.rect[2] - selected.rect[0]) * scale,
-                        height: (selected.rect[3] - selected.rect[1]) * scale,
-                      }}
+                  {[...queue.map(item => item.target), ...(draftTargets.length ? draftTargets : selected ? [selected] : [])]
+                    .filter((target,index,all) => target.page === page && all.findIndex(t => t.id === target.id) === index)
+                    .map(target => (
+                    <div key={target.id} className={queue.some(item => item.target.id === target.id) ? 'target-highlight queued-highlight' : 'target-highlight'}
+                      style={{left:(target.rect[0]-(bounds?.[0]||0))*scale,
+                        top:(target.rect[1]-(bounds?.[1]||0))*scale,
+                        width:(target.rect[2]-target.rect[0])*scale,height:(target.rect[3]-target.rect[1])*scale}}
                     />
-                  )}
+                  ))}
                 </div>
                 {rendering && (
                   <span className="render-indicator">
@@ -830,12 +947,67 @@ export default function App() {
                 </p>
                 <button
                   className="primary full"
-                  disabled={!selected || !!busy}
+                  disabled={!selected || !!busy || draftTargets.length>1}
                   onClick={() => review()}
                 >
                   <Search size={15} />
                   Review replacement
                 </button>
+                <button className="secondary full add-changes" disabled={!selected || !!busy || queue.length>=40}
+                  onClick={() => {
+                    const targets=draftTargets.length?draftTargets:selected?[selected]:[];
+                    const texts=replacement.split('\n');
+                    if(targets.length>1 && texts.length!==targets.length) {
+                      setError('Keep one replacement line for each selected line, or edit the individual changes after adding.'); return;
+                    }
+                    enqueue(targets,targets.length>1?texts:[replacement]);
+                  }}>
+                  <Plus size={14}/> Add to changes
+                </button>
+                <p className="hint small">Drag across exact words or several lines. Ctrl/Cmd-click adds a line directly. Selections stay in your list across pages.</p>
+                {queue.length>0 && (
+                  <section className="batch-panel" aria-label="Batch changes">
+                    <div className="section-heading">
+                      <h2>Changes to apply</h2><span className="count">{queue.length}</span>
+                      <button className="text-button" disabled={!!busy} onClick={() => {setQueue([]);setBatchReview(undefined);}}>Clear all</button>
+                    </div>
+                    {queue.map((item,index) => {
+                      const checked=batchReview?.operations.find(op => op.target.id===item.target.id);
+                      return <article className="batch-item" key={item.target.id}>
+                        <div className="batch-item-heading">
+                          <label className="checkbox-label"><input type="checkbox" checked={item.included} disabled={!!busy}
+                            aria-label={`Include change ${index+1}`} onChange={e=>editQueue(item.target.id,{included:e.target.checked})}/>
+                            Change {index+1}</label>
+                          <button className="text-button" disabled={!!busy} onClick={()=>setPage(item.target.page)}>
+                            Page {item.target.page+1} · {item.target.rect[0].toFixed(0)}, {item.target.rect[1].toFixed(0)} pt
+                          </button>
+                          <button className="icon-button" aria-label={`Remove change ${index+1}`} disabled={!!busy}
+                            onClick={()=>{setQueue(current=>current.filter(entry=>entry.target.id!==item.target.id));setBatchReview(undefined);}}><X size={13}/></button>
+                        </div>
+                        <div className="batch-original">{item.target.original}</div>
+                        <label htmlFor={`batch-replacement-${index}`}>Replacement {index+1}</label>
+                        <textarea id={`batch-replacement-${index}`} rows={2} maxLength={500} value={item.replacement} disabled={!!busy}
+                          onChange={e=>editQueue(item.target.id,{replacement:e.target.value})}/>
+                        <p className={checked?.status==='SAFE_TO_APPLY'?'batch-status safe':'batch-status'}>
+                          {!item.included?'Excluded from this batch.':checked?checked.message:'Not reviewed yet.'}
+                        </p>
+                      </article>;
+                    })}
+                    <label htmlFor="batch-common">Same replacement for included changes</label>
+                    <input id="batch-common" value={bulkText} maxLength={500} disabled={!!busy} onChange={e=>setBulkText(e.target.value)}/>
+                    <button className="secondary full" disabled={!!busy} onClick={()=>{
+                      setQueue(current=>current.map(item=>item.included?{...item,replacement:bulkText}:item));
+                      setBatchReview(undefined);
+                    }}>Set included replacements</button>
+                    <button className="secondary full" disabled={!!busy || !queue.some(item=>item.included)} onClick={reviewBatch}>Review all changes</button>
+                    {batchReview && <p className="batch-summary" role="status">{batchReview.message}</p>}
+                    <button className="primary full" disabled={!!busy || batchReview?.status!=='SAFE_TO_APPLY'} onClick={applyBatch}>
+                      <Check size={14}/> Apply all changes
+                    </button>
+                    <p className="hint small">All included changes apply together, or none do. One Undo reverses the entire batch. No AI request is needed.</p>
+                  </section>
+                )}
+
               </>
             ) : (
               <>
@@ -961,7 +1133,7 @@ export default function App() {
                 <div className="row-actions">
                   <button
                     className="primary"
-                    disabled={proposal.status !== 'SAFE_TO_APPLY' || !!busy}
+                    disabled={proposal.status !== 'SAFE_TO_APPLY' || !!busy || queue.length>0}
                     onClick={apply}
                   >
                     <Check size={15} />

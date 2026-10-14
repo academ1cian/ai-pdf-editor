@@ -226,7 +226,6 @@ await copyFile(
   'node_modules/pdfjs-dist/standard_fonts/LICENSE_LIBERATION',
   'tests/fixtures/LICENSE-Liberation.txt',
 );
-console.log(`Generated ${manifest.length} distinct synthetic fixtures.`);
 
 const batchDoc = await PDFDocument.create();
 const batchRegular = await batchDoc.embedFont(StandardFonts.Helvetica);
@@ -256,3 +255,5 @@ await writeFile('tests/fixtures/32-batch-invoice.pdf',batchBytes);
 await writeFile('public/batch-sample.pdf',batchBytes);
 manifest.push({id:'32-batch-invoice',target:'0089033',replacement:'1000',page:0,occurrence:0,expected:'PASS',category:'dense-invoice-batch'});
 await writeFile('tests/fixtures/manifest.json',JSON.stringify(manifest,null,2)+'\n');
+
+console.log(`Generated ${manifest.length} distinct synthetic fixtures.`);

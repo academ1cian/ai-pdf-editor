@@ -1283,3 +1283,24 @@ textarea {
 :root .unsafe .review-title {
   color: #806825;
 }
+
+/* Exact glyph placement keeps browser selection aligned with PDF coordinates. */
+.text-line { overflow: visible; }
+.text-glyph { position:absolute; display:block; white-space:pre; color:transparent; line-height:1; }
+.text-glyph::selection { background:#448d5b70; color:transparent; }
+.queued-highlight { background:#9fbb7833; border-color:#4f765a; border-style:dashed; }
+.add-changes { margin-top:8px; }
+.batch-panel { margin-top:24px; border-top:1px solid var(--line); padding-top:20px; }
+.batch-panel .section-heading > .text-button { margin-left:auto; }
+.batch-item { margin:14px 0; padding:12px; border:1px solid #dce3d7; border-radius:6px; background:#fafbf8; }
+.batch-item-heading { display:flex; align-items:center; justify-content:space-between; gap:5px; margin-bottom:8px; }
+.batch-item-heading .checkbox-label { font-size:10px; margin:0; }
+.batch-item-heading .text-button { font-size:9px; }
+.batch-original { padding:8px; background:#eef1eb; color:#465341; font-size:11px; white-space:pre-wrap; overflow-wrap:anywhere; margin-bottom:10px; }
+.batch-item textarea { margin-bottom:0; }
+.batch-status, .batch-summary { font-size:10px; color:#785b2f; line-height:1.6; margin:8px 0 0; overflow-wrap:anywhere; }
+.batch-status.safe { color:#456238; }
+.batch-panel > button { margin-top:9px; }
+.batch-panel > input { width:100%; }
+
+.paper-copy { font-family:'DM Sans',sans-serif; font-size:8px; line-height:1.8; color:#53634f; margin:12px 0; }

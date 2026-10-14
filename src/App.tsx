@@ -591,7 +591,14 @@ export default function App() {
             </div>
           ) : (
             <>
-              <div className="viewer" ref={viewer} aria-busy={rendering || !!busy} tabIndex={0} role="region" aria-label="PDF page canvas">
+              <div
+                className="viewer"
+                ref={viewer}
+                aria-busy={rendering || !!busy}
+                tabIndex={0}
+                role="region"
+                aria-label="PDF page canvas"
+              >
                 <div className="page-paper" style={{ width: pageWidth, height: pageHeight }}>
                   {image && (
                     <img

@@ -179,15 +179,15 @@ async function main() {
     await writeFile('wrangler.jsonc', await readFile('wrangler.pages.generated.json', 'utf8'));
     try {
       await runWrangler([
-      'pages',
-      'deploy',
-      'dist',
-      '--project-name',
-      project,
-      '--branch',
-      'main',
-      '--commit-hash',
-      env.GITHUB_SHA,
+        'pages',
+        'deploy',
+        'dist',
+        '--project-name',
+        project,
+        '--branch',
+        'main',
+        '--commit-hash',
+        env.GITHUB_SHA,
       ]);
     } finally {
       await writeFile('wrangler.jsonc', workerConfig);
@@ -202,17 +202,21 @@ async function main() {
             signal: AbortSignal.timeout(10000),
           }),
         ]);
-        publicReady = config.ok && version.ok &&
+        publicReady =
+          config.ok &&
+          version.ok &&
           (await config.json()).enabled === true &&
           (await version.json()).commit === env.GITHUB_SHA;
         if (publicReady) break;
       } catch {
         // Transient routing/network failures are retried; response bodies are not logged.
       }
-      if (attempt < 11) await new Promise(resolve => setTimeout(resolve, 3000));
+      if (attempt < 11) await new Promise((resolve) => setTimeout(resolve, 3000));
     }
     if (!publicReady)
-      throw new Error('Public API/version checks failed after propagation retries. Deployment is not verified.');
+      throw new Error(
+        'Public API/version checks failed after propagation retries. Deployment is not verified.',
+      );
     // Public metadata only; available to the following smoke-test job.
     if (env.GITHUB_OUTPUT) await appendFile(env.GITHUB_OUTPUT, `url=${origin}\n`);
     if (env.GITHUB_STEP_SUMMARY)

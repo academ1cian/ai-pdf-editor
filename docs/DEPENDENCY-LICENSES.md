@@ -8,14 +8,15 @@ UI fonts DM Sans / Manrope and embedded synthetic-fixture Liberation Sans carry 
 
 | Package | Version | License declared upstream | Use | License files |
 |---|---|---|---|---|
+| @axe-core/playwright | 4.13.0 | MPL-2.0 | direct development | LICENSE |
 | @cacheable/memory | 2.2.0 | MIT | transitive | LICENSE |
 | @cacheable/utils | 2.5.0 | MIT | transitive | LICENSE |
 | @cloudflare/kv-asset-handler | 0.5.0 | MIT OR Apache-2.0 | transitive | not packaged at root; see upstream |
 | @cloudflare/unenv-preset | 2.16.2 | MIT OR Apache-2.0 | transitive | not packaged at root; see upstream |
-| @cloudflare/workerd-windows-64 | 1.20261006.1 | Apache-2.0 | transitive | not packaged at root; see upstream |
+| @cloudflare/workerd-linux-64 | 1.20261006.1 | Apache-2.0 | transitive | not packaged at root; see upstream |
 | @cloudflare/workers-types | 5.20261013.1 | MIT OR Apache-2.0 | direct development | not packaged at root; see upstream |
 | @cspotcode/source-map-support | 0.8.1 | MIT | transitive | LICENSE.md |
-| @esbuild/win32-x64 | 0.28.2 | MIT | transitive | not packaged at root; see upstream |
+| @esbuild/linux-x64 | 0.28.2 | MIT | transitive | not packaged at root; see upstream |
 | @eslint-community/eslint-utils | 4.10.1 | MIT | transitive | LICENSE |
 | @eslint-community/regexpp | 4.12.2 | MIT | transitive | LICENSE |
 | @eslint/config-array | 0.23.5 | Apache-2.0 | transitive | LICENSE |
@@ -32,7 +33,8 @@ UI fonts DM Sans / Manrope and embedded synthetic-fixture Liberation Sans carry 
 | @humanwhocodes/module-importer | 1.0.1 | Apache-2.0 | transitive | LICENSE |
 | @humanwhocodes/retry | 0.4.3 | Apache-2.0 | transitive | LICENSE |
 | @img/colour | 1.1.0 | MIT | transitive | LICENSE.md |
-| @img/sharp-win32-x64 | 0.35.5 | Apache-2.0 AND LGPL-3.0-or-later | transitive | LICENSE |
+| @img/sharp-libvips-linux-x64 | 1.3.4 | LGPL-3.0-or-later | transitive | not packaged at root; see upstream |
+| @img/sharp-linux-x64 | 0.35.5 | Apache-2.0 | transitive | LICENSE |
 | @jridgewell/resolve-uri | 3.1.2 | MIT | transitive | LICENSE |
 | @jridgewell/sourcemap-codec | 1.6.0 | MIT | transitive | LICENSE |
 | @jridgewell/trace-mapping | 0.3.9 | MIT | transitive | LICENSE |
@@ -40,7 +42,7 @@ UI fonts DM Sans / Manrope and embedded synthetic-fixture Liberation Sans carry 
 | @keyv/bigmap | 1.3.1 | MIT | transitive | LICENSE |
 | @keyv/serialize | 1.1.1 | MIT | transitive | LICENSE |
 | @napi-rs/canvas | 1.0.11 | MIT | transitive | LICENSE |
-| @napi-rs/canvas-win32-x64-msvc | 1.0.11 | MIT | transitive | not packaged at root; see upstream |
+| @napi-rs/canvas-linux-x64-gnu | 1.0.11 | MIT | transitive | not packaged at root; see upstream |
 | @oxc-project/types | 0.153.0 | MIT | transitive | LICENSE |
 | @pdf-lib/fontkit | 1.1.1 | MIT | direct development | not packaged at root; see upstream |
 | @pdf-lib/standard-fonts | 1.0.0 | MIT | transitive | LICENSE.md |
@@ -49,7 +51,7 @@ UI fonts DM Sans / Manrope and embedded synthetic-fixture Liberation Sans carry 
 | @poppinss/colors | 4.1.6 | MIT | transitive | LICENSE.md |
 | @poppinss/dumper | 0.6.5 | MIT | transitive | LICENSE.md |
 | @poppinss/exception | 1.2.3 | MIT | transitive | LICENSE.md |
-| @rolldown/binding-win32-x64-msvc | 1.2.13 | MIT | transitive | not packaged at root; see upstream |
+| @rolldown/binding-linux-x64-gnu | 1.2.13 | MIT | transitive | not packaged at root; see upstream |
 | @rolldown/pluginutils | 1.0.1 | MIT | transitive | LICENSE |
 | @sindresorhus/is | 7.2.0 | MIT | transitive | license |
 | @speed-highlight/core | 1.2.24 | CC0-1.0 | transitive | LICENSE |
@@ -71,7 +73,6 @@ UI fonts DM Sans / Manrope and embedded synthetic-fixture Liberation Sans carry 
 | @typescript-eslint/typescript-estree | 8.71.2 | MIT | transitive | LICENSE |
 | @typescript-eslint/utils | 8.71.2 | MIT | transitive | LICENSE |
 | @typescript-eslint/visitor-keys | 8.71.2 | MIT | transitive | LICENSE |
-| @typescript/typescript-win32-x64 | 7.0.2 | Apache-2.0 | transitive | LICENSE, NOTICE.txt |
 | @vitejs/plugin-react | 6.1.2 | MIT | direct development | LICENSE |
 | @vitest/mocker | 5.0.4 | MIT | transitive | LICENSE |
 | @vitest/spy | 5.0.4 | MIT | transitive | LICENSE |
@@ -79,6 +80,7 @@ UI fonts DM Sans / Manrope and embedded synthetic-fixture Liberation Sans carry 
 | acorn-jsx | 5.3.2 | MIT | transitive | LICENSE |
 | ajv | 6.15.0 | MIT | transitive | LICENSE |
 | assertion-error | 2.0.1 | MIT | transitive | LICENSE |
+| axe-core | 4.13.0 | MPL-2.0 | transitive | LICENSE, LICENSE-3RD-PARTY.txt |
 | balanced-match | 4.0.4 | MIT | transitive | LICENSE.md |
 | blake3-wasm | 2.1.5 | MIT | transitive | LICENSE |
 | brace-expansion | 5.0.12 | MIT | transitive | LICENSE |
@@ -130,7 +132,7 @@ UI fonts DM Sans / Manrope and embedded synthetic-fixture Liberation Sans carry 
 | kleur | 4.1.5 | MIT | transitive | license |
 | levn | 0.4.1 | MIT | transitive | LICENSE |
 | lightningcss | 1.33.0 | MPL-2.0 | transitive | LICENSE |
-| lightningcss-win32-x64-msvc | 1.33.0 | MPL-2.0 | transitive | LICENSE |
+| lightningcss-linux-x64-gnu | 1.33.0 | MPL-2.0 | transitive | LICENSE |
 | locate-path | 6.0.0 | MIT | transitive | license |
 | lucide-react | 1.56.0 | ISC | runtime | LICENSE |
 | magic-string | 1.4.3 | MIT | transitive | LICENSE |
@@ -157,6 +159,7 @@ UI fonts DM Sans / Manrope and embedded synthetic-fixture Liberation Sans carry 
 | playwright-core | 1.64.0 | Apache-2.0 | transitive | LICENSE, NOTICE |
 | postcss | 8.5.30 | MIT | transitive | LICENSE |
 | prelude-ls | 1.2.1 | MIT | transitive | LICENSE |
+| prettier | 3.9.10 | MIT | direct development | LICENSE |
 | punycode | 2.3.1 | MIT | transitive | LICENSE-MIT.txt |
 | qified | 0.10.1 | MIT | transitive | LICENSE |
 | react | 19.3.0 | MIT | runtime | LICENSE |
@@ -178,7 +181,6 @@ UI fonts DM Sans / Manrope and embedded synthetic-fixture Liberation Sans carry 
 | tsx | 4.23.15 | MIT | direct development | LICENSE |
 | type-check | 0.4.0 | MIT | transitive | LICENSE |
 | typescript | 6.0.3 | Apache-2.0 | direct development | LICENSE.txt |
-| typescript | 7.0.2 | Apache-2.0 | direct development | LICENSE, NOTICE.txt |
 | typescript-eslint | 8.71.2 | MIT | direct development | LICENSE |
 | undici | 7.29.1 | MIT | transitive | LICENSE |
 | undici-types | 8.9.0 | MIT | transitive | LICENSE |

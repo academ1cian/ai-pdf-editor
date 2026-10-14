@@ -1,0 +1,27 @@
+import {it,expect} from 'vitest';
+import {PDFDocument,StandardFonts} from 'pdf-lib';
+import {inspectPDF,proposePDF,applyPDF} from '../src/engine/pdf';
+import {findTargets,History} from '../src/engine/model';
+it.each(['horizontal','vertical'])('preserves a barely touching %s neighbor during invoice-number redaction',async(direction)=>{
+  const doc=await PDFDocument.create();
+  const font=await doc.embedFont(StandardFonts.HelveticaBold);
+  const page=doc.addPage([612,792]);
+  const size=9.8,x=476,y=742;
+  page.drawText('0089033',{x,y,size,font});
+  const seed=await doc.save();
+  const target=findTargets(inspectPDF(seed),'0089033')[0];
+  if(direction==='horizontal') page.drawText('INVOICE',{x:x+.14-font.widthOfTextAtSize('INVOICE',size),y,size,font});
+  else page.drawText('REFERENCE',{x,y:y+(target.rect[3]-target.rect[1])-.14,size,font});
+  const source=await doc.save();
+  const actual=findTargets(inspectPDF(source),'0089033')[0];
+  const op={target:actual,replacement:'1000'};
+  expect(proposePDF(source,op).status).toBe('SAFE_TO_APPLY');
+  const history=new History(source);
+  const output=applyPDF(history.current,op);
+  history.commit(output.bytes);
+  expect(findTargets(output.model,direction==='horizontal'?'INVOICE':'REFERENCE')).toHaveLength(1);
+  expect(findTargets(output.model,'0089033')).toHaveLength(0);
+  expect(findTargets(output.model,'1000')).toHaveLength(1);
+  expect(output.validation.outsidePixels).toBe(0);
+  expect(history.undo()).toEqual(source);
+});

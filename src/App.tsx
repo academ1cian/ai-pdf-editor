@@ -1492,7 +1492,7 @@ export default function App() {
                 Built for careful corrections.
                 <br />
                 <span>
-                  Standard PDF fonts and short, single-line Latin text. Embedded fonts and scans are
+                  Standard PDF fonts and short Latin text on each original line. Embedded fonts and scans are
                   view-only.
                 </span>
               </p>

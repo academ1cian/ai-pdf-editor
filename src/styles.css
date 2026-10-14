@@ -1373,3 +1373,6 @@ textarea {
   color: #53634f;
   margin: 12px 0;
 }
+
+/* Active batch actions need readable contrast at the compact panel size. */
+:root .secondary { color: #456238; }

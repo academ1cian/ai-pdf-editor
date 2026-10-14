@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import {
   ArrowDownToLine,
   ArrowLeft,
@@ -84,6 +84,7 @@ export default function App() {
   const [draftTargets, setDraftTargets] = useState<Target[]>([]);
   const [bulkText, setBulkText] = useState('');
   const draggedSelection = useRef(false);
+  const dragStart = useRef<{line:string;start:number;end:number;x:number;y:number}>();
   const [tab, setTab] = useState<'manual' | 'ai'>('manual');
   const [instruction, setInstruction] = useState('');
   const [config, setConfig] = useState<Config>({
@@ -411,15 +412,11 @@ export default function App() {
 
   const enqueue = (targets: Target[], replacements?: string[]) => {
     if (busy || !targets.length) return;
-    setQueue(current => {
-      const next = [...current];
-      for (let i=0;i<targets.length;i++) {
-        if (next.some(item => item.target.id === targets[i].id)) continue;
-        if (next.length >= 40) break;
-        next.push({target: targets[i], replacement: replacements?.[i] ?? targets[i].original, included: true});
-      }
-      return next;
-    });
+    const additions = targets.map((target,index) => ({target,replacement:replacements?.[index] ?? target.original,included:true}))
+      .filter(item => !queue.some(current => current.target.id === item.target.id));
+    if (!additions.length) {setNotice('This selection is already in your change list.'); return;}
+    if (queue.length + additions.length > 40) {setError('A batch supports up to 40 changes. Nothing was added; choose fewer spans.'); return;}
+    setQueue([...queue,...additions]);
     setBatchReview(undefined);
     setProposal(undefined);
     setNotice('Selection added. Edit each replacement below, then review all changes together.');
@@ -460,8 +457,40 @@ export default function App() {
       setBatchReview(undefined);
     } finally {setBusy('');}
   };
-  const captureSelection = (add: boolean) => {
+  const captureSelection = (add: boolean, event?: ReactMouseEvent<HTMLDivElement>) => {
     if (!model || busy) return;
+    // Browser native ranges differ for absolutely positioned glyphs (notably Firefox).
+    // Pointer endpoints resolve exact character intervals against the document model.
+    const anchor = dragStart.current;
+    dragStart.current = undefined;
+    if (event) {
+      if (!anchor || Math.hypot(event.clientX-anchor.x,event.clientY-anchor.y)<3) return;
+      const layer=viewer.current?.querySelector('.text-layer');
+      const hit=document.elementFromPoint(event.clientX,event.clientY)?.closest<HTMLElement>('[data-line-id]');
+      if (!hit || !layer?.contains(hit)) return;
+      const lines=model.pages[page].lines;
+      const ai=lines.findIndex(line=>line.id===anchor.line);
+      const bi=lines.findIndex(line=>line.id===hit.dataset.lineId);
+      if(ai<0||bi<0)return;
+      const end={start:Number(hit.dataset.charStart),end:Number(hit.dataset.charEnd)};
+      const forward=ai<bi || (ai===bi && anchor.start<=end.start);
+      const targets:Target[]=[];
+      for(let i=Math.min(ai,bi);i<=Math.max(ai,bi);i++) {
+        const start=i===Math.min(ai,bi)?(forward?anchor.start:end.start):0;
+        const finish=i===Math.max(ai,bi)?(forward?end.end:anchor.end):lines[i].text.length;
+        const target=targetFromRange(model,page,lines[i].id,start,finish);
+        if(target)targets.push(target);
+      }
+      if(!targets.length)return;
+      draggedSelection.current=true;
+      setDraftTargets(targets);setSelected(targets[0]);
+      setQuery(targets.length===1?targets[0].original:'');
+      setReplacement(targets.map(t=>t.original).join('\n'));setProposal(undefined);
+      window.getSelection()?.removeAllRanges();
+      if(add)enqueue(targets);
+      else setNotice(`${targets.length} exact span${targets.length===1?'':'s'} selected. Use Add to changes to keep them across pages.`);
+      return;
+    }
     const selection = window.getSelection();
     if (!selection || selection.isCollapsed || !selection.rangeCount) return;
     const range = selection.getRangeAt(0);
@@ -710,7 +739,11 @@ export default function App() {
                       height={pageHeight}
                     />
                   )}
-                  <div className="text-layer" aria-label={`Selectable text on page ${page + 1}`} onMouseUp={e => captureSelection(e.ctrlKey || e.metaKey)}>
+                  <div className="text-layer" aria-label={`Selectable text on page ${page + 1}`} onMouseDown={e => {
+                    const node=(e.target as HTMLElement).closest<HTMLElement>('[data-line-id]');
+                    dragStart.current=node?{line:node.dataset.lineId!,start:Number(node.dataset.charStart),end:Number(node.dataset.charEnd),x:e.clientX,y:e.clientY}:undefined;
+                    draggedSelection.current=false;
+                  }} onMouseUp={e => captureSelection(e.ctrlKey || e.metaKey,e)}>
                     {currentPage?.lines.map((line) => (
                       <span
                         key={line.id}
@@ -947,7 +980,7 @@ export default function App() {
                 </p>
                 <button
                   className="primary full"
-                  disabled={!selected || !!busy || draftTargets.length>1}
+                  disabled={!selected || !!busy || draftTargets.length>1 || queue.length>0}
                   onClick={() => review()}
                 >
                   <Search size={15} />

@@ -47,3 +47,13 @@ This log is updated at meaningful milestones. Test and deployment claims must re
 - Hosted format/license refresh succeeded (run 38596541920); refreshed dependency inventory and formatted implementation committed by the runner.
 - Production manual and real AI acceptance criteria have passed for the explicitly constrained scope. Updated README, test matrix, deployment instructions and production evidence with executed results and real screenshots.
 - Status: COMPLETE for the documented MVP scope. The final documentation/source commit still receives the same automatic quality/deployment/public smoke gates; their live results are linked through GitHub Actions. No remaining user credential action is needed.
+
+## 2026-10-14 — Atomic manual batch extension (in progress)
+
+- Added one-snapshot batch preflight, stale target identity, duplicate/overlap rejection, one redaction pass per affected page, and combined structural/glyph/style/all-page pixel validation. Individual disjoint span masks are retained; no enclosing-page acceptance mask.
+- Worker commits one validated export for a whole batch. Undo reverses that single history entry. Failures preserve current bytes and source; no React loop of individual Apply calls.
+- Added exact glyph-aligned pointer selection, cross-line selection, Ctrl/Cmd-assisted addition, persistent cross-page highlights, per-field replacements/validation/inclusion/removal, clear-all, common replacement and review/apply-all.
+- Hosted 44 unit/integration/safety tests pass; the 32-fixture gate is 24 PASS, 8 EXPECTED UNSUPPORTED, zero FAIL. The screenshot-style 9.8 pt Helvetica-Bold invoice-number replacement passes, but the actual screenshot invoice bytes were not supplied and its exact failure is not claimed fixed.
+- Expanded real browser tests found Firefox native selection expansion, now resolved from pointer endpoint glyphs, and a numeric option-selector ambiguity in the test, corrected to explicit values.
+- Refined only the landing illustration's content to a neutral project brief; preserved tilt, muted green styling and Small changes / Carefully made overlay.
+- Status: PARTIALLY COMPLETE for the new requirement until updated compatibility tests and actual production batch export verification pass. No AI/budget/Turnstile dependency or paid-service change was introduced.

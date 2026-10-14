@@ -22,6 +22,12 @@ export function validateAnalysis(plan: AIPlan, blocks: ContextBlock[], instructi
   for(const {e,b} of [...resolved].sort((a,b)=>(a.e.calculation?.operation==='sum'?1:0)-(b.e.calculation?.operation==='sum'?1:0))) {
     if(!b || !b.text.includes(e.original) || b.text.indexOf(e.original)!==b.text.lastIndexOf(e.original))
       return clarify('The target is not unique in the supplied context. Specify its row or page.');
+    if(financial && !e.calculation) {
+      try {
+        const requested=(instruction.match(/-?\d[\d,]*(?:\.\d+)?/g)||[]).map(decimal);
+        if(!requested.includes(decimal(e.replacement)))return clarify('Confirm the replacement amount for '+(e.label||e.original)+'. It was not specified in your instruction.');
+      } catch { return clarify('Use an explicit numeric replacement and identify the row.'); }
+    }
     if(e.calculation) {
       const refs=e.calculation.sources.map(s=>blocks.find(b=>b.id===s.blockId&&b.page===s.page&&b.text.trim()===s.original));
       if(refs.some(b=>!b) || new Set(refs.map(b=>b!.id)).size!==refs.length) return clarify('The calculation sources could not be uniquely established.');
@@ -44,7 +50,7 @@ export function validateAnalysis(plan: AIPlan, blocks: ContextBlock[], instructi
       e.explanation+=' Calculation: '+changed.join(product?' × ':' + ')+' = '+e.replacement+'. Verify the source fields before approval.';
     }
   }
-  if(financial && /\b(total|accordingly)\b/i.test(instruction) && !plan.edits.some(e=>e.calculation))
+  if(financial && /\b(accordingly|recalculate|recompute)\b/i.test(instruction) && !plan.edits.some(e=>e.calculation))
     return clarify('Which line item should be set to 1000, and which amounts make up the total? No financial values have been changed.');
   return plan;
 }

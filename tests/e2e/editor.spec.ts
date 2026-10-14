@@ -97,7 +97,7 @@ test('duplicates require selection; overflow and scanned PDFs fail safely', asyn
   await page.getByRole('button', { name: /John Smith.*Occurrence 2/ }).click();
   await page.getByLabel('Replace with').fill('This replacement is much too long to fit');
   await page.getByRole('button', { name: 'Review replacement' }).click();
-  await expect(page.getByText(/only .* pt is available/)).toBeVisible();
+  await expect(page.getByText(/pt is safely available/)).toBeVisible();
   await expect(page.getByRole('button', { name: 'Apply change' })).toBeDisabled();
   await page.getByLabel('Upload PDF').setInputFiles(resolve('tests/fixtures/23-scanned.pdf'));
   await expect(page.getByText(/No selectable text found/)).toBeVisible();

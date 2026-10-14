@@ -1583,13 +1583,13 @@ export default function App() {
             </p>
             <p>
               AI is optional. When configured, your instruction and a limited amount of extracted
-              text from the current page are sent through Cloudflare to Groq, only with your
+              text and layout hints from relevant pages are sent through Cloudflare to Groq, only with your
               consent. Cloudflare Turnstile checks for abuse. Never send sensitive content you are
               not authorized to share.
             </p>
             <p>
               This version replaces printable Latin ASCII text with bounded whitespace expansion and up to 5% type reduction, in standard Helvetica,
-              Times, and Courier PDF fonts. Replacements must fit the original area. Scans, custom
+              Times, and Courier PDF fonts. Fitting uses measured local whitespace and up to 5% smaller type; neighboring text never moves. Scans, custom
               or embedded fonts, forms, signed, encrypted, tagged, rotated, clipped, and complex
               documents may be unsupported.
             </p>

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { handleAPI, type AIEnv } from '../worker/api';
-import { reserve } from '../worker/budget';
+import { reserve, reconcile, type Usage } from '../worker/budget';
 import { AIPlanSchema, AIRequestSchema } from '../src/ai/schema';
 const body = {
   instruction: 'Replace pending with ready',
@@ -163,4 +163,24 @@ describe('free proxy and abuse protection', () => {
     expect(reserve(u, 'a', 100, time + 86400000).usage.requests).toBe(1);
     expect(reserve(undefined, 'a', -1, time).allowed).toBe(false);
   });
+});
+
+it('reconciles real provider usage, refunds 429, and distinguishes application throttles',async()=>{
+  let usage:Usage|undefined;
+  let count=0;
+  const configured:AIEnv={...env,BUDGET:{idFromName:n=>n,get:()=>({fetch:async req=>{
+    const b=await req.json() as {client:string;network:string;id:string;tokens:number;actual?:number;rejected?:boolean};
+    if(new URL(req.url).pathname==='/reconcile'){usage=reconcile(usage!,b.id,b.actual,b.rejected);return new Response(null,{status:204});}
+    const r=reserve(usage,b.client,b.tokens,Date.UTC(2026,9,14)+count++*20000,undefined,b.network,b.id);
+    usage=r.usage;return Response.json({reason:r.reason,retryAfter:r.retryAfter,remaining:r.remaining},{status:r.allowed?200:429});
+  }})}};
+  const actual=(async(url:RequestInfo|URL)=>String(url).includes('siteverify')?Response.json({success:true,hostname:'editor.example',action:'pdf-plan'}):
+    Response.json({usage:{total_tokens:150},choices:[{message:{content:JSON.stringify(validPlan)},finish_reason:'stop'}]})) as typeof fetch;
+  for(let i=0;i<8;i++)expect((await handleAPI(request(),configured,actual)).status).toBe(200);
+  expect(usage!.tokens).toBe(1200);
+  const refused=await handleAPI(request(),configured,fetcher(validPlan,undefined,429));
+  expect((await refused.json()).code).toBe('provider_rate_limit');expect(usage!.tokens).toBe(1200);expect(usage!.requests).toBe(8);
+  usage={...usage!,tokens:100000};
+  const capped=await handleAPI(request(),configured,actual);
+  expect((await capped.json()).code).toBe('global_daily');
 });

@@ -2,7 +2,7 @@
 
 Careful corrections to existing PDF text, with an explicit review step and checks on the **actual exported PDF**. Manual editing stays on your device and works without an AI provider.
 
-**Status: PARTIALLY COMPLETE.** The manual workflow has passed real Chromium upload/edit/download tests. Public Cloudflare deployment and live Groq integration have not been verified yet. No live demo URL is claimed.
+**Status: COMPLETE for the documented MVP scope.** [Open the live editor](https://ai-pdf-editor.pages.dev). Production manual editing/export and real Turnstile → Groq proposal → review → apply → download have passed, including independent PDF.js verification. See [production evidence](docs/PRODUCTION-VERIFICATION.md) and [current CI/deployment runs](https://github.com/academ1cian/ai-pdf-editor/actions).
 
 ![Actual editor after a validated edit](docs/screenshots/editor.png)
 
@@ -14,7 +14,7 @@ Careful corrections to existing PDF text, with an explicit review step and check
 - Actual source-text removal through applied redaction, followed by real page-content insertion. No rectangle covering old text and no annotation-only mock edits.
 - Export validation: reopen, page count, exact changed-region text, neighboring glyph positions, hyperlinks and all-page pixel comparison.
 - Immutable original, validated snapshots, undo, reset, change history and genuinely modified downloads.
-- Optional AI proposal UI and protected Groq Worker implementation; fail-closed when unconfigured. Live provider/production checks remain pending.
+- Optional AI proposals through a protected Groq Worker; real production integration verified. Manual editing works independently of AI availability.
 
 ## Honest support boundaries
 
@@ -30,7 +30,7 @@ Validation at 108 dpi is evidence, not a guarantee of every printer, viewer or P
 
 Every successful proof-of-concept export reopened with independent PDF.js extraction. Every affected and unaffected page was raster-compared at 108 dpi; zero unexpected pixels outside the original target span plus a two-pixel antialias margin. The original input remained unchanged. See [engine decision](docs/ADR-001-pdf-engine.md), [test matrix](docs/TEST-MATRIX.md) and [machine-readable evidence](tests/evidence/results.json).
 
-Before migration to remote runners, 28 unit/integration tests and 3 Chromium browser tests passed; the frontend and Worker dry-run builds succeeded. Subsequent remote checks, added deployment safety tests and Firefox/WebKit results are reported by [GitHub Actions](https://github.com/academ1cian/ai-pdf-editor/actions), not assumed from the local results.
+GitHub-hosted verification passed **34 unit/integration/safety tests** and **12 end-to-end tests across Chromium, Firefox and WebKit**, plus typecheck, lint, production build and Worker dry-run. The actual public deployment passed **4 Chromium production smoke cases**. A separate hosted PDF.js check independently verified the real AI-downloaded export: replacement searchable, original target absent, same page count and all other extracted text preserved.
 
 ## Architecture
 
@@ -87,7 +87,7 @@ Use [GitHub repository secrets](https://github.com/academ1cian/ai-pdf-editor/set
 | `CLOUDFLARE_ACCOUNT_ID` | Chosen Cloudflare account |
 | `TURNSTILE_SECRET` | Server verification secret for the real widget |
 
-Public repository variables: `TURNSTILE_SITE_KEY`, `CF_FREE_PLAN_CONFIRMED=true` after verifying both providers are Free, and `DEPLOY_ENABLED=true` when ready. Requested Pages project name: `ai-pdf-editor`, anticipated hostname `ai-pdf-editor.pages.dev`; `CF_PAGES_PROJECT` can override it. Authenticated project creation verifies the returned hostname and stops on a collision. This is configuration, **not a claimed live URL**.
+Public repository variables: `TURNSTILE_SITE_KEY`, `CF_FREE_PLAN_CONFIRMED=true` after verifying both providers are Free, and `DEPLOY_ENABLED=true` when ready. Deployed Pages project: `ai-pdf-editor`; verified production hostname: [`ai-pdf-editor.pages.dev`](https://ai-pdf-editor.pages.dev). Authenticated project creation checks the returned hostname and stops on a collision.
 
 Read [deployment instructions and minimum authorization](docs/DEPLOYMENT.md). Deployment sends secret values directly over TLS to Cloudflare's Worker Secret API; no secret-valued shell arguments, temporary files, uploaded artifacts or log output. It checks the account's subscriptions read-only and refuses paid/unrecognized account plans. No billing/subscription writes are implemented. Forked PRs cannot deploy. Production smoke testing runs in a separate job without deployment/provider credentials.
 
@@ -97,8 +97,8 @@ Combined application: **AGPL-3.0-only**, with [full license](LICENSE) and [depen
 
 ## Next improvements
 
-1. Complete actual Cloudflare deployment, real Turnstile/Groq proposal-to-download test and automatic-deployment verification.
-2. Extend font reuse only after embedded glyph mapping and embedding-right checks pass new fixtures.
-3. Add independent render comparisons at multiple scales, larger legitimate redistributable corpora and deeper PDF feature validation.
+1. Extend font reuse only after embedded glyph mapping and embedding-right checks pass new fixtures.
+2. Add independent render comparisons at multiple scales and larger legitimate redistributable corpora.
+3. Add deeper PDF feature validation and broader document support without weakening rejection rules.
 
 Execution state and outstanding work: [progress log](docs/PROGRESS.md).

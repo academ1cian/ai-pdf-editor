@@ -40,3 +40,10 @@ This log is updated at meaningful milestones. Test and deployment claims must re
 - Production Turnstile verified automatically in the real browser. Groq returned a real Jordan Example → Robin Sample proposal; QA reviewed it, applied it, observed successful text/geometry/pixel export validation, and downloaded the actual synthetic PDF.
 - Added that actual downloaded synthetic PDF as reproducible evidence and a separate hosted PDF.js verifier. Independent AI-export verification is pending this run; no mock provider or fake CAPTCHA was used.
 - The initial post-upload API check ran before routing propagation; retry succeeded. Added bounded propagation retries checking both enabled API and exact public commit before reporting deployment ready.
+
+## 2026-10-14 — Acceptance evidence and handoff
+
+- Independent hosted PDF.js verification of the real AI export passed (run 38596234860): one page, exact searchable replacement, original target absent, all other extracted text preserved; original and export SHA-256 recorded in docs/evidence/production-ai-verification.json.
+- Hosted format/license refresh succeeded (run 38596541920); refreshed dependency inventory and formatted implementation committed by the runner.
+- Production manual and real AI acceptance criteria have passed for the explicitly constrained scope. Updated README, test matrix, deployment instructions and production evidence with executed results and real screenshots.
+- Status: COMPLETE for the documented MVP scope. The final documentation/source commit still receives the same automatic quality/deployment/public smoke gates; their live results are linked through GitHub Actions. No remaining user credential action is needed.

@@ -6,7 +6,7 @@ All install/build/test/deployment commands execute on standard GitHub-hosted Ubu
 
 Repository: https://github.com/academ1cian/ai-pdf-editor
 
-Requested Pages project: **`ai-pdf-editor`**. Planned production hostname: **`ai-pdf-editor.pages.dev`**. This is not a claimed live URL until Cloudflare deployment succeeds. The script checks the actual returned `subdomain` and stops if Cloudflare assigns something different. `CF_PAGES_PROJECT` can override the project name after a collision is resolved explicitly.
+Deployed Pages project: **`ai-pdf-editor`**. Verified production hostname: **[`ai-pdf-editor.pages.dev`](https://ai-pdf-editor.pages.dev)**. The script checks the actual returned `subdomain` and stops if Cloudflare assigns something different. `CF_PAGES_PROJECT` can override the project name after a collision is resolved explicitly.
 
 Create a free managed Turnstile widget for **`ai-pdf-editor.pages.dev`**. Do not use testing site keys in production. The proxy verifies both that exact hostname and action `pdf-plan`.
 
@@ -53,7 +53,7 @@ The deployment workflow is `.github/workflows/deploy.yml`. Run it through the [A
 
 In the actual public app, open the synthetic sample, choose AI assistant, consent to sending current-page extracted text, and complete real Turnstile if prompted. Ask to replace `Jordan Example` with `Robin Sample`. The model must return a real structured proposal, the user/QA must review/apply it, and the downloaded PDF must independently contain the replacement without the original in its target region.
 
-Automated API mocks and fake CAPTCHA tokens are not live integration evidence. A human-interactive challenge requires participation in the browser. Until real provider/Turnstile and public export checks succeed, project status remains PARTIALLY COMPLETE.
+Automated API mocks and fake CAPTCHA tokens are not live integration evidence. A human-interactive challenge requires participation in the browser. These real provider/Turnstile and public export checks passed on 2026-10-14. See [production verification](PRODUCTION-VERIFICATION.md).
 
 ## Abuse protection and free limits
 

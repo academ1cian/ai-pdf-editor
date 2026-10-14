@@ -1,0 +1,16 @@
+{
+  "checkedAt": "2026-10-14T16:13:45.385Z",
+  "origin": "https://ai-pdf-editor.pages.dev",
+  "publicCommit": "0a98b9356ba62f5da4f68a16ef7c6e9209a79c1d",
+  "source": "Built-in synthetic sample; real public Turnstile and Groq proposal reviewed/applied/downloaded in browser.",
+  "independentExtractor": "PDF.js 6.4.299",
+  "originalSHA256": "53c1b64bde9efaff1d340e037df492795c7a17c2ebd260d3caa0d1dc65f467ef",
+  "exportedSHA256": "d1b2cff0351f7c88ef4db224627e44822d666c44486056df01b46e6408e197a6",
+  "pages": 1,
+  "replacement": "Jordan Example → Robin Sample",
+  "originalTargetRemoved": true,
+  "replacementSearchable": true,
+  "otherExtractedTextPreserved": true,
+  "unchangedPublicOriginal": true,
+  "result": "PASS"
+}

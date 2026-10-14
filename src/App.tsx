@@ -391,7 +391,9 @@ export default function App() {
       setAiEdits(plan.edits);
       setAiClarification(plan.clarification || '');
       const remaining=response.headers.get('X-AI-Remaining-Requests');
-      setAiQuota(remaining && remaining!=='unknown' ? remaining+' requests remain in this session’s application allowance. Groq limits are separate.' : '');
+      const globalRequests=response.headers.get('X-AI-Global-Requests-Used');
+      const globalTokens=response.headers.get('X-AI-Global-Tokens-Used');
+      setAiQuota((remaining && remaining!=='unknown' ? remaining+' requests remain in this session’s application allowance. ' : '')+(globalRequests && globalTokens ? 'Shared application usage today: '+globalRequests+'/80 requests and '+globalTokens+'/100,000 tokens. ' : '')+'Groq rate limits are separate.');
       setNotice(
         plan.edits.length
           ? 'Review the proposed fields, then add related changes to your batch.'

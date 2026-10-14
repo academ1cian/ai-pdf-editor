@@ -495,7 +495,7 @@ export default function App() {
         }}
       />
       <main className={model ? 'workspace' : 'welcome-workspace'}>
-        <section className="document-area" aria-label="Document viewer">
+        <section className="document-area" aria-label="Document viewer" tabIndex={0}>
           <div className="document-toolbar">
             <div className="toolbar-label">
               <FileText size={15} />
@@ -591,7 +591,7 @@ export default function App() {
             </div>
           ) : (
             <>
-              <div className="viewer" ref={viewer} aria-busy={rendering || !!busy}>
+              <div className="viewer" ref={viewer} aria-busy={rendering || !!busy} tabIndex={0} role="region" aria-label="PDF page canvas">
                 <div className="page-paper" style={{ width: pageWidth, height: pageHeight }}>
                   {image && (
                     <img
@@ -745,7 +745,7 @@ export default function App() {
               AI assistant
             </button>
           </div>
-          <div className="panel-scroll">
+          <div className="panel-scroll" tabIndex={0} role="region" aria-label="Editing controls">
             {tab === 'manual' ? (
               <>
                 <div className="section-heading">

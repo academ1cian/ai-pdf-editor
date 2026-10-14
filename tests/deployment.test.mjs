@@ -18,6 +18,8 @@ it('rejects paid, ambiguous, and externally managed subscriptions', () => {
     { price: 5, rate_plan: { id: 'workers_paid' } },
     { rate_plan: { id: 'free' } },
     { price: 0, rate_plan: { id: 'enterprise' } },
+    { price: 0, rate_plan: { id: 'unknown' } },
+    { price: 0, rate_plan: { id: 'free', public_name: 'Business Plan' } },
     { price: 0, rate_plan: { id: 'free', externally_managed: true } },
   ])
     expect(() => assertFreeSubscriptions([sub])).toThrow();

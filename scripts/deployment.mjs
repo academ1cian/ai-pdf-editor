@@ -14,10 +14,10 @@ export function assertFreeSubscriptions(subscriptions) {
       !plan ||
       plan.externally_managed ||
       plan.is_contract ||
-      (/paid|enterprise|business|pro\b|basic|standard/i.test(
+      !/free/i.test(`${plan.id || ''} ${plan.public_name || ''}`) ||
+      /paid|enterprise|business|\bpro\b|\bbasic\b|\bstandard\b/i.test(
         `${plan.id || ''} ${plan.public_name || ''}`,
-      ) &&
-        !/free/i.test(`${plan.id || ''} ${plan.public_name || ''}`))
+      )
     )
       throw new Error(
         'A paid or unrecognized account subscription was found. Only a verified free account is allowed. No billing changes were made.',

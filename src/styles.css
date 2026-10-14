@@ -1260,3 +1260,12 @@ textarea {
 :root :is(.eyebrow, .beta, .step-number, .history-item strong, .workflow-guide strong) {
   color: #5b7058;
 }
+
+/* Accessible contrast for decorative and reviewed states. */
+:root :is(.paper-card > span, .paper-card > small, .paper-card > b, .decoration-highlight) { color: #354e32; }
+:root :is(.empty-content > p, .workflow-guide > div > span) { color: #566a50; }
+:root h1 span { color: #677765; }
+:root :is(.review-title, .validation-card, .match-page, .count) { color: #456238; }
+:root .replacement-diff del { color: #7c4e42; }
+:root .replacement-diff ins { color: #406331; }
+:root .unsafe .review-title { color: #806825; }

@@ -18,6 +18,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - run: pnpm install --frozen-lockfile
       - run: pnpm format
+      - run: pnpm licenses
       - run: pnpm fixtures
       - run: pnpm typecheck
       - run: pnpm lint
@@ -28,7 +29,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src worker functions scripts tests/*.ts tests/*.mjs tests/e2e *.ts *.json *.mjs .github/workflows
+          git add src worker functions scripts tests/*.ts tests/*.mjs tests/e2e *.ts *.json *.mjs .github/workflows docs/DEPENDENCY-LICENSES.md docs/dependency-licenses.json
           if ! git diff --cached --quiet; then
             git commit -m "style: format implementation and workflows on hosted runner"
             git push origin HEAD:main

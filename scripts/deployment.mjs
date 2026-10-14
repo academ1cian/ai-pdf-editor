@@ -195,8 +195,8 @@ async function main() {
     // Bind readiness to the content-hashed client entry, whose compiled revision
     // is independently checked by the public browser. Stable metadata URLs can be stale.
     const builtHTML = await readFile('dist/index.html', 'utf8');
-    const entry = builtHTML.match(/<script[^>]+src="([^"]+\\.js)"/)?.[1];
-    if (!entry || !entry.startsWith('/assets/'))
+    const entry = builtHTML.match(/<script[^>]+src="([^"]+)"/)?.[1];
+    if (!entry || !entry.startsWith('/assets/') || !entry.endsWith('.js'))
       throw new Error('Built client entry could not be identified.');
     let publicReady = false;
     for (let attempt = 0; attempt < 20; attempt++) {

@@ -238,6 +238,7 @@ export default function App() {
         new Uint8Array(await file.arrayBuffer()),
       );
       setModel(result.model);
+      setConsent(false);
       setName(file.name);
       setPage(0);
       setChanges([]);

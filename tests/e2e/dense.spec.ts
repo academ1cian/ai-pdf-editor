@@ -59,3 +59,30 @@ for (const [i, instruction] of requests.entries())
     expect(posts).toEqual([]);
     expect(errors).toEqual([]);
   });
+
+test('Groq disclosure consent is scoped to the uploaded document', async ({ page }) => {
+  test.skip(!!process.env.BASE_URL, 'Availability is isolated; no provider call is made.');
+  await page.route('**/api/config', (route) =>
+    route.fulfill({ json: { enabled: true, siteKey: 'synthetic-test-key' } }),
+  );
+  await page.route('**/turnstile/v0/api.js?render=explicit', (route) =>
+    route.fulfill({
+      contentType: 'application/javascript',
+      body: "window.turnstile={render:(_el,o)=>{o.callback('synthetic-token');return 'test';},reset:()=>{},remove:()=>{}};",
+    }),
+  );
+  await page.goto('/');
+  await page.getByLabel('Upload PDF').setInputFiles(resolve('tests/fixtures/dense-invoice-a.pdf'));
+  const consent = page.getByRole('checkbox', {
+    name: 'I agree to send the displayed document context to Groq for a proposal.',
+    exact: true,
+  });
+  await consent.check();
+  await expect(consent).toBeChecked();
+  await page.getByLabel('Upload PDF').setInputFiles(resolve('tests/fixtures/dense-invoice-b.pdf'));
+  await expect(consent).not.toBeChecked();
+  await page
+    .getByLabel('What would you like to change?', { exact: true })
+    .fill('Change the rate and charge to 3300 and calculate the final amount automatically.');
+  await expect(page.getByText(/This invoice request is interpreted on your device/)).toBeVisible();
+});

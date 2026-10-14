@@ -1,0 +1,24 @@
+{
+  "origin": "https://ai-pdf-editor.pages.dev",
+  "client": "fa875ae0199db81b8978a1f8da17524bf2685680",
+  "instruction": "Change the invoice date to October 15, update the primary freight rate to 1000, and recalculate the charge and total. Preserve the unloading fee and ship date.",
+  "provider": "Real Groq / gpt-oss-120b",
+  "turnstile": "Real automatic verification",
+  "preview": {
+    "changes": 6,
+    "affectedPages": [
+      1,
+      2,
+      3
+    ],
+    "workingCopy": "preview-1-6470-21db9451-46d5ffad",
+    "page1Rate": "1000.0000",
+    "page1InvoiceDate": "10/15/2026",
+    "page3Total": "1090.00",
+    "page3InvoiceDate": "10/15/2026",
+    "originalComparisonTotal": "1295.00"
+  },
+  "approvalPerformed": false,
+  "discarded": true,
+  "sourceUndoAndDownloadStayedDisabled": true
+}

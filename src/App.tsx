@@ -73,6 +73,7 @@ export default function App() {
   const fileInput = useRef<HTMLInputElement>(null);
   const viewer = useRef<HTMLDivElement>(null);
   const captcha = useRef<HTMLDivElement>(null);
+  const previewReview=useRef<HTMLElement>(null);
   const captchaId = useRef<string | undefined>(undefined);
   const generation = useRef(0);
   const modal = useRef<HTMLElement>(null);
@@ -102,6 +103,7 @@ export default function App() {
   const [tab, setTab] = useState<'manual' | 'ai'>('ai');
   const [preview,setPreview]=useState<Preview>();
   const [compareOriginal,setCompareOriginal]=useState(false);
+  useEffect(()=>{if(preview)previewReview.current?.scrollIntoView({block:'start'});},[preview]);
   const [renderedSnapshot,setRenderedSnapshot]=useState('');
   const [aiInterpretation,setAiInterpretation]=useState('');
   const [aiAlternatives,setAiAlternatives]=useState<NonNullable<AIPlan['alternatives']>>([]);
@@ -1382,7 +1384,7 @@ export default function App() {
                 {aiQuota && <details className="hint"><summary>AI usage and limits</summary><p>{aiQuota}</p></details>}
                 {aiInterpretation&&<p className="hint">{aiInterpretation}</p>}
                 {aiAlternatives.map(alternative=><button className="text-button" key={alternative.label} disabled={!!busy} onClick={()=>{discardPreview();setInstruction(alternative.instruction);}}>{alternative.label}</button>)}
-                {preview&&<section className="preview-review" aria-label="Edited document preview">
+                {preview&&<section ref={previewReview} className="preview-review" aria-label="Edited document preview">
                   <h2>Review your edited document</h2>
                   <p className="hint">{preview.operations.length} changes prepared on a working copy. Your document stays unchanged until approval.</p>
                   <div className="preview-compare">
@@ -1397,7 +1399,7 @@ export default function App() {
                   {preview.proposals.some(p=>p.fitting==='typography'||p.fitting==='whitespace')&&<p className="hint">Some text uses adjacent empty space or a small type adjustment. Inspect the highlighted result before approving.</p>}
                   <details className="hint"><summary>Advanced layout and integrity checks</summary>{preview.proposals.map(p=><p key={p.target.id}>{p.message}</p>)}<p>{preview.validation.checks.join('. ')}</p></details>
                   <button className="primary full" disabled={!!busy||compareOriginal||rendering||renderedSnapshot!==preview.id+':'+page} onClick={approvePreview}><Check size={15}/>Apply &amp; Download</button>
-                  <button className="text-button" disabled={!!busy} onClick={discardPreview}>Discard preview</button>
+                  <div className="row-actions"><button className="text-button" disabled={!!busy} onClick={()=>{discardPreview();document.getElementById('instruction')?.focus();}}>Revise instruction</button><button className="text-button" disabled={!!busy} onClick={discardPreview}>Discard preview</button></div>
                 </section>}
 
               </>

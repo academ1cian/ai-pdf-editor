@@ -18,7 +18,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - run: pnpm install --frozen-lockfile
       - run: pnpm format
-      - run: pnpm licenses
+      - run: pnpm run licenses
       - run: pnpm fixtures
       - run: pnpm typecheck
       - run: pnpm lint

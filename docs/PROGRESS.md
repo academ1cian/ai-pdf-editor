@@ -24,3 +24,12 @@ This log is updated at meaningful milestones. Test and deployment claims must re
 - User chose GitHub Actions repository secrets instead of a local .dev.vars file. Remote deployment workflow provisions Worker secrets directly via Cloudflare's TLS API, isolates frontend build and public smoke jobs from credentials, and refuses paid/unknown account subscriptions. Extra deployment safety tests have been authored; their remote result is pending.
 - Pending: publish source milestones through GitHub connector, execute remote Chromium/Firefox/WebKit CI, configure secrets/Turnstile/free-plan confirmation via browser, deploy actual Cloudflare resources, verify public URL/manual export/live AI, verify a subsequent push triggers deployment.
 - Current project status: PARTIALLY COMPLETE. Public deployment and real Groq success are not claimed.
+
+## 2026-10-14 — Hosted compatibility and first deployment
+
+- GitHub-hosted verification passed: 34 unit/integration/safety tests, 12 end-to-end tests across Chromium, Firefox, and WebKit, typecheck/lint/build, Worker dry-run, and the 31-PDF integrity matrix (23 PASS, 8 EXPECTED UNSUPPORTED, zero FAIL).
+- Fixed accessibility failures found by the new WCAG audit; both empty and populated editor states pass the automated audit.
+- After the user updated the scoped token, the hosted account subscription check passed. No billing writes or paid upgrades occurred.
+- Cloudflare created the requested Pages project and confirmed its hostname is ai-pdf-editor.pages.dev. The SQLite Worker deployed and GitHub Actions provisioned both production secrets directly over TLS.
+- First frontend upload failed because Pages rejects a custom Wrangler config path. Corrected deployment to use the standard root filename only during the ephemeral runner upload. Also corrected the hosted formatting workflow's pnpm script invocation.
+- Public frontend and live AI verification remain pending. Status: PARTIALLY COMPLETE.

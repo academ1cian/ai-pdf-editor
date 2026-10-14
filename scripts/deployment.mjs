@@ -173,19 +173,25 @@ async function main() {
     return;
   }
   if (mode === 'pages') {
-    await runWrangler([
+    // Pages only accepts a standard Wrangler filename. This ephemeral runner checkout
+    // uses the Pages config at the root during upload, then restores the Worker config.
+    const workerConfig = await readFile('wrangler.jsonc', 'utf8');
+    await writeFile('wrangler.jsonc', await readFile('wrangler.pages.generated.json', 'utf8'));
+    try {
+      await runWrangler([
       'pages',
       'deploy',
       'dist',
-      '--config',
-      'wrangler.pages.generated.json',
       '--project-name',
       project,
       '--branch',
       'main',
       '--commit-hash',
       env.GITHUB_SHA,
-    ]);
+      ]);
+    } finally {
+      await writeFile('wrangler.jsonc', workerConfig);
+    }
     const config = await fetch(`${origin}/api/config`, { signal: AbortSignal.timeout(20000) });
     if (!config.ok || (await config.json()).enabled !== true)
       throw new Error('Public API configuration check failed. Deployment is not verified.');

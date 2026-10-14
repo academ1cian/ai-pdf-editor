@@ -1,0 +1,38 @@
+name: Verify public deployment
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'Actual HTTPS pages.dev URL to verify'
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CI: true
+      BASE_URL: ${{ inputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: pnpm/action-setup@v4
+      - name: Require an actual Cloudflare production URL
+        run: node -e "const u=new URL(process.env.BASE_URL); if(u.protocol!=='https:'||!u.hostname.endsWith('.pages.dev')||u.username||u.password||u.port)process.exit(1)"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm fixtures
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm exec playwright test --project=chromium
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: production-smoke-evidence
+          path: |
+            playwright-report/
+            test-results/
+            docs/screenshots/
+          retention-days: 3

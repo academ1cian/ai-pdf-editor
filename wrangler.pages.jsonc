@@ -1,0 +1,7 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ai-pdf-editor",
+  "pages_build_output_dir": "dist",
+  "compatibility_date": "2026-10-14",
+  "services": [{"binding":"AI_PROXY", "service":"ai-pdf-editor-proxy"}]
+}

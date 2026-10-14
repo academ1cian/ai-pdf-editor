@@ -1,0 +1,49 @@
+name: Quality and PDF integrity
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CI: true
+      WRANGLER_SEND_METRICS: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install --frozen-lockfile
+      - name: Generate distinct synthetic PDF fixtures
+        run: pnpm fixtures
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+      - name: Prove real editing and independent PDF.js extraction
+        run: pnpm poc
+      - run: pnpm build
+      - name: Compile Worker without deploying resources
+        run: pnpm exec wrangler deploy --dry-run --outdir tmp/worker-build
+      - name: Install browsers on GitHub runner only
+        run: pnpm exec playwright install --with-deps chromium firefox webkit
+      - run: pnpm test:e2e
+      - name: Retain evidence and actual screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-evidence
+          path: |
+            tests/evidence/
+            docs/screenshots/
+            playwright-report/
+            test-results/
+          retention-days: 3

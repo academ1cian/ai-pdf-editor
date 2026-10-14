@@ -1,0 +1,124 @@
+name: Deploy to Cloudflare Free
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: [Quality and PDF integrity]
+    types: [completed]
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: cloudflare-production
+  cancel-in-progress: false
+jobs:
+  build:
+    if: >-
+      vars.DEPLOY_ENABLED == 'true' &&
+      github.repository == 'academ1cian/ai-pdf-editor' &&
+      ((github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+       (github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_repository.full_name == github.repository))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      sha: ${{ steps.revision.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
+      - id: revision
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm fixtures
+      - run: pnpm test
+      - run: pnpm poc
+      - run: pnpm build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-for-deployment
+          path: dist/
+          retention-days: 1
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      url: ${{ steps.publish.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.build.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          name: frontend-for-deployment
+          path: dist/
+      - name: Verify Free plan and deploy the fail-closed Worker
+        run: node scripts/deployment.mjs prepare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_FREE_PLAN_CONFIRMED: ${{ vars.CF_FREE_PLAN_CONFIRMED }}
+          CF_PAGES_PROJECT: ${{ vars.CF_PAGES_PROJECT }}
+          TURNSTILE_SITE_KEY: ${{ vars.TURNSTILE_SITE_KEY }}
+      - name: Provision Worker secrets directly over TLS (no files or logs)
+        run: node scripts/deployment.mjs secrets
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
+          CF_FREE_PLAN_CONFIRMED: ${{ vars.CF_FREE_PLAN_CONFIRMED }}
+          CF_PAGES_PROJECT: ${{ vars.CF_PAGES_PROJECT }}
+      - id: publish
+        name: Deploy frontend with a private proxy service binding
+        run: node scripts/deployment.mjs pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_FREE_PLAN_CONFIRMED: ${{ vars.CF_FREE_PLAN_CONFIRMED }}
+          CF_PAGES_PROJECT: ${{ vars.CF_PAGES_PROJECT }}
+          GITHUB_SHA: ${{ needs.build.outputs.sha }}
+  public-smoke:
+    needs: [build, deploy]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CI: true
+      BASE_URL: ${{ needs.deploy.outputs.url }}
+      EXPECTED_COMMIT_SHA: ${{ needs.build.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.build.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm fixtures
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm exec playwright test --project=chromium
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: public-smoke-evidence
+          path: |
+            playwright-report/
+            test-results/
+            docs/screenshots/
+          retention-days: 3

@@ -1,0 +1,21 @@
+AI PDF Editor is distributed under GNU AGPL v3 only. See /licenses/AGPL-3.0.txt.
+Corresponding application source, build instructions, exact dependency lockfile:
+https://github.com/academ1cian/ai-pdf-editor
+
+MuPDF JavaScript/WASM 1.28.1
+Copyright (C) 2004-2026 Artifex Software, Inc.
+Licensed GNU Affero General Public License version 3 or later.
+MuPDF is provided without any warranty, including merchantability or fitness
+for a particular purpose. Source and build instructions for the matching
+upstream library are maintained by Artifex:
+https://github.com/ArtifexSoftware/mupdf
+https://mupdf.readthedocs.io/en/latest/guide/javascript.html
+https://www.npmjs.com/package/mupdf/v/1.28.1
+
+React / React DOM: MIT, Copyright Meta Platforms, Inc. and affiliates.
+Zod: MIT, Copyright Colin McDonnell.
+Lucide: ISC, Copyright Lucide Contributors (and Feather-derived icon notices).
+DM Sans / Manrope font files: SIL Open Font License 1.1.
+License texts are distributed under /licenses/.
+Development/test dependencies and redistributable Liberation Sans fixture font
+are listed in docs/DEPENDENCY-LICENSES.md and its JSON inventory in source.

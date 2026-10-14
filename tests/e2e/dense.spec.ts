@@ -73,6 +73,7 @@ test('Groq disclosure consent is scoped to the uploaded document', async ({ page
   );
   await page.goto('/');
   await page.getByLabel('Upload PDF').setInputFiles(resolve('tests/fixtures/dense-invoice-a.pdf'));
+  await expect(page.getByRole('img', { name: 'PDF page 1', exact: true })).toBeVisible();
   const consent = page.getByRole('checkbox', {
     name: 'I agree to send the displayed document context to Groq for a proposal.',
     exact: true,
@@ -80,6 +81,7 @@ test('Groq disclosure consent is scoped to the uploaded document', async ({ page
   await consent.check();
   await expect(consent).toBeChecked();
   await page.getByLabel('Upload PDF').setInputFiles(resolve('tests/fixtures/dense-invoice-b.pdf'));
+  await expect(page.getByText('dense-invoice-b.pdf', { exact: true })).toBeVisible();
   await expect(consent).not.toBeChecked();
   await page
     .getByLabel('What would you like to change?', { exact: true })

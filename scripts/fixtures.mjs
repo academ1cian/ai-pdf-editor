@@ -324,7 +324,7 @@ console.log(`Generated ${manifest.length} distinct synthetic fixtures.`);
   text(p,'CONSIGNEE',320,680,9,true);text(p,'Project Distribution - synthetic consignee',320,661);
   text(p,'300 State Route 281',320,645);text(p,'Tully, NY 13159',320,629);
   text(p,'SHIP DATE',40,586,9,true);text(p,'10/09/2026',120,586);
-  text(p,'BILL OF LADING',310,586,9,true);text(p,'50003865578',420,586);
+  text(p,'BILL OF LADING',310,586,9,true);text(p,'70000000001',420,586);
   for(const x of [40,300,395,445,510,572])p.drawLine({start:{x,y:468},end:{x,y:541},thickness:.5});
   for(const y of [468,492,516,541])p.drawLine({start:{x:40,y},end:{x:572,y},thickness:.5});
   text(p,'DESCRIPTION',48,525,9,true);text(p,'WEIGHT',350,525,8,true);text(p,'UNITS',405,525,8,true);

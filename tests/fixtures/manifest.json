@@ -277,5 +277,14 @@
     "occurrence": 0,
     "expected": "EXPECTED UNSUPPORTED",
     "category": "embedded-font"
+  },
+  {
+    "id": "32-batch-invoice",
+    "target": "0089033",
+    "replacement": "1000",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "dense-invoice-batch"
   }
 ]

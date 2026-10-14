@@ -15,17 +15,18 @@
       "outsidePixels": 0,
       "checkedPages": 1,
       "checks": [
-        "Reopened exported PDF",
+        "Reopened combined exported PDF",
         "Page count preserved",
-        "Replacement searchable in target region",
-        "Original target removed",
-        "Neighboring text positions preserved",
+        "1 replacements searchable in their target regions",
+        "Original targets removed",
+        "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
-        "All pages compared at 108 dpi; zero unexpected pixels"
+        "All pages compared at 108 dpi; zero unexpected pixels",
+        "All changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 487
+    "ms": 661
   },
   {
     "id": "02-serif",
@@ -43,17 +44,18 @@
       "outsidePixels": 0,
       "checkedPages": 1,
       "checks": [
-        "Reopened exported PDF",
+        "Reopened combined exported PDF",
         "Page count preserved",
-        "Replacement searchable in target region",
-        "Original target removed",
-        "Neighboring text positions preserved",
+        "1 replacements searchable in their target regions",
+        "Original targets removed",
+        "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
-        "All pages compared at 108 dpi; zero unexpected pixels"
+        "All pages compared at 108 dpi; zero unexpected pixels",
+        "All changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 33
+    "ms": 70
   },
   {
     "id": "03-monospace",
@@ -71,17 +73,18 @@
       "outsidePixels": 0,
       "checkedPages": 1,
       "checks": [
-        "Reopened exported PDF",
+        "Reopened combined exported PDF",
         "Page count preserved",
-        "Replacement searchable in target region",
-        "Original target removed",
-        "Neighboring text positions preserved",
+        "1 replacements searchable in their target regions",
+        "Original targets removed",
+        "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
-        "All pages compared at 108 dpi; zero unexpected pixels"
+        "All pages compared at 108 dpi; zero unexpected pixels",
+        "All changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 24
+    "ms": 35
   },
   {
     "id": "04-large",
@@ -99,17 +102,18 @@
       "outsidePixels": 0,
       "checkedPages": 1,
       "checks": [
-        "Reopened exported PDF",
+        "Reopened combined exported PDF",
         "Page count preserved",
-        "Replacement searchable in target region",
-        "Original target removed",
-        "Neighboring text positions preserved",
+        "1 replacements searchable in their target regions",
+        "Original targets removed",
+        "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
-        "All pages compared at 108 dpi; zero unexpected pixels"
+        "All pages compared at 108 dpi; zero unexpected pixels",
+        "All changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 26
+    "ms": 39
   },
   {
     "id": "05-small",
@@ -127,17 +131,18 @@
       "outsidePixels": 0,
       "checkedPages": 1,
       "checks": [
-        "Reopened exported PDF",
+        "Reopened combined exported PDF",
         "Page count preserved",
-        "Replacement searchable in target region",
-        "Original target removed",
-        "Neighboring text positions preserved",
+        "1 replacements searchable in their target regions",
+        "Original targets removed",
+        "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
-        "All pages compared at 108 dpi; zero unexpected pixels"
+        "All pages compared at 108 dpi; zero unexpected pixels",
+        "All changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 22
+    "ms": 32
   },
   {
     "id": "06-bold",
@@ -155,17 +160,18 @@
       "outsidePixels": 0,
       "checkedPages": 1,
       "checks": [
-        "Reopened exported PDF",
+        "Reopened combined exported PDF",
         "Page count preserved",
-        "Replacement searchable in target region",
-        "Original target removed",
-        "Neighboring text positions preserved",
+        "1 replacements searchable in their target regions",
+        "Original targets removed",
+        "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
-        "All pages compared at 108 dpi; zero unexpected pixels"
+        "All pages compared at 108 dpi; zero unexpected pixels",
+        "All changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 25
+    "ms": 38
   },
   {
     "id": "07-italic",
@@ -183,17 +189,18 @@
       "outsidePixels": 0,
       "checkedPages": 1,
       "checks": [
-        "Reopened exported PDF",
+        "Reopened combined exported PDF",
         "Page count preserved",
-        "Replacement searchable in target region",
-        "Original target removed",
-        "Neighboring text positions preserved",
+        "1 replacements searchable in their target regions",
+        "Original targets removed",
+        "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
-        "All pages compared at 108 dpi; zero unexpected pixels"
+        "All pages compared at 108 dpi; zero unexpected pixels",
+        "All changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 22
+    "ms": 33
   },
   {
     "id": "08-bold-italic",
@@ -211,17 +218,18 @@
       "outsidePixels": 0,
       "checkedPages": 1,
       "checks": [
-        "Reopened exported PDF",
+        "Reopened combined exported PDF",
         "Page count preserved",
-        "Replacement searchable in target region",
-        "Original target removed",
-        "Neighboring text positions preserved",
+        "1 replacements searchable in their target regions",
+        "Original targets removed",
+        "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
-        "All pages compared at 108 dpi; zero unexpected pixels"
+        "All pages compared at 108 dpi; zero unexpected pixels",
+        "All changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 30
+    "ms": 31
   },
   {
     "id": "09-shorter",
@@ -239,17 +247,18 @@
       "outsidePixels": 0,
       "checkedPages": 1,
       "checks": [
-        "Reopened exported PDF",
+        "Reopened combined exported PDF",
         "Page count preserved",
-        "Replacement searchable in target region",
-        "Original target removed",
-        "Neighboring text positions preserved",
+        "1 replacements searchable in their target regions",
+        "Original targets removed",
+        "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
-        "All pages compared at 108 dpi; zero unexpected pixels"
+        "All pages compared at 108 dpi; zero unexpected pixels",
+        "All changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 35
+    "ms": 28
   },
   {
     "id": "10-longer-fits",
@@ -267,17 +276,18 @@
       "outsidePixels": 0,
       "checkedPages": 1,
       "checks": [
-        "Reopened exported PDF",
+        "Reopened combined exported PDF",
         "Page count preserved",
-        "Replacement searchable in target region",
-        "Original target removed",
-        "Neighboring text positions preserved",
+        "1 replacements searchable in their target regions",
+        "Original targets removed",
+        "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
-        "All pages compared at 108 dpi; zero unexpected pixels"
+        "All pages compared at 108 dpi; zero unexpected pixels",
+        "All changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 23
+    "ms": 28
   },
   {
     "id": "11-overflow",
@@ -306,17 +316,18 @@
       "outsidePixels": 0,
       "checkedPages": 1,
       "checks": [
-        "Reopened exported PDF",
+        "Reopened combined exported PDF",
         "Page count preserved",
-        "Replacement searchable in target region",
-        "Original target removed",
-        "Neighboring text positions preserved",
+        "1 replacements searchable in their target regions",
+        "Original targets removed",
+        "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
-        "All pages compared at 108 dpi; zero unexpected pixels"
+        "All pages compared at 108 dpi; zero unexpected pixels",
+        "All changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 21
+    "ms": 28
   },
   {
     "id": "13-multipage",
@@ -334,17 +345,18 @@
       "outsidePixels": 0,
       "checkedPages": 2,
       "checks": [
-        "Reopened exported PDF",
+        "Reopened combined exported PDF",
         "Page count preserved",
-        "Replacement searchable in target region",
-        "Original target removed",
-        "Neighboring text positions preserved",
+        "1 replacements searchable in their target regions",
+        "Original targets removed",
+        "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
-        "All pages compared at 108 dpi; zero unexpected pixels"
+        "All pages compared at 108 dpi; zero unexpected pixels",
+        "All changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 39
+    "ms": 51
   },
   {
     "id": "14-resume",
@@ -362,17 +374,18 @@
       "outsidePixels": 0,
       "checkedPages": 1,
       "checks": [
-        "Reopened exported PDF",
+        "Reopened combined exported PDF",
         "Page count preserved",
-        "Replacement searchable in target region",
-        "Original target removed",
-        "Neighboring text positions preserved",
+        "1 replacements searchable in their target regions",
+        "Original targets removed",
+        "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
-        "All pages compared at 108 dpi; zero unexpected pixels"
+        "All pages compared at 108 dpi; zero unexpected pixels",
+        "All changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 55
+    "ms": 76
   },
   {
     "id": "15-invoice",
@@ -390,17 +403,18 @@
       "outsidePixels": 0,
       "checkedPages": 1,
       "checks": [
-        "Reopened exported PDF",
+        "Reopened combined exported PDF",
         "Page count preserved",
-        "Replacement searchable in target region",
-        "Original target removed",
-        "Neighboring text positions preserved",
+        "1 replacements searchable in their target regions",
+        "Original targets removed",
+        "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
-        "All pages compared at 108 dpi; zero unexpected pixels"
+        "All pages compared at 108 dpi; zero unexpected pixels",
+        "All changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 28
+    "ms": 33
   },
   {
     "id": "16-table",
@@ -418,17 +432,18 @@
       "outsidePixels": 0,
       "checkedPages": 1,
       "checks": [
-        "Reopened exported PDF",
+        "Reopened combined exported PDF",
         "Page count preserved",
-        "Replacement searchable in target region",
-        "Original target removed",
-        "Neighboring text positions preserved",
+        "1 replacements searchable in their target regions",
+        "Original targets removed",
+        "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
-        "All pages compared at 108 dpi; zero unexpected pixels"
+        "All pages compared at 108 dpi; zero unexpected pixels",
+        "All changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 27
+    "ms": 33
   },
   {
     "id": "17-vectors",
@@ -446,17 +461,18 @@
       "outsidePixels": 0,
       "checkedPages": 1,
       "checks": [
-        "Reopened exported PDF",
+        "Reopened combined exported PDF",
         "Page count preserved",
-        "Replacement searchable in target region",
-        "Original target removed",
-        "Neighboring text positions preserved",
+        "1 replacements searchable in their target regions",
+        "Original targets removed",
+        "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
-        "All pages compared at 108 dpi; zero unexpected pixels"
+        "All pages compared at 108 dpi; zero unexpected pixels",
+        "All changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 36
+    "ms": 31
   },
   {
     "id": "18-neighbors",
@@ -474,17 +490,18 @@
       "outsidePixels": 0,
       "checkedPages": 1,
       "checks": [
-        "Reopened exported PDF",
+        "Reopened combined exported PDF",
         "Page count preserved",
-        "Replacement searchable in target region",
-        "Original target removed",
-        "Neighboring text positions preserved",
+        "1 replacements searchable in their target regions",
+        "Original targets removed",
+        "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
-        "All pages compared at 108 dpi; zero unexpected pixels"
+        "All pages compared at 108 dpi; zero unexpected pixels",
+        "All changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 24
+    "ms": 27
   },
   {
     "id": "19-background",
@@ -502,17 +519,18 @@
       "outsidePixels": 0,
       "checkedPages": 1,
       "checks": [
-        "Reopened exported PDF",
+        "Reopened combined exported PDF",
         "Page count preserved",
-        "Replacement searchable in target region",
-        "Original target removed",
-        "Neighboring text positions preserved",
+        "1 replacements searchable in their target regions",
+        "Original targets removed",
+        "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
-        "All pages compared at 108 dpi; zero unexpected pixels"
+        "All pages compared at 108 dpi; zero unexpected pixels",
+        "All changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 51
+    "ms": 59
   },
   {
     "id": "20-hyperlink",
@@ -530,17 +548,18 @@
       "outsidePixels": 0,
       "checkedPages": 1,
       "checks": [
-        "Reopened exported PDF",
+        "Reopened combined exported PDF",
         "Page count preserved",
-        "Replacement searchable in target region",
-        "Original target removed",
-        "Neighboring text positions preserved",
+        "1 replacements searchable in their target regions",
+        "Original targets removed",
+        "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
-        "All pages compared at 108 dpi; zero unexpected pixels"
+        "All pages compared at 108 dpi; zero unexpected pixels",
+        "All changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 32
+    "ms": 29
   },
   {
     "id": "21-colored",
@@ -558,17 +577,18 @@
       "outsidePixels": 0,
       "checkedPages": 1,
       "checks": [
-        "Reopened exported PDF",
+        "Reopened combined exported PDF",
         "Page count preserved",
-        "Replacement searchable in target region",
-        "Original target removed",
-        "Neighboring text positions preserved",
+        "1 replacements searchable in their target regions",
+        "Original targets removed",
+        "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
-        "All pages compared at 108 dpi; zero unexpected pixels"
+        "All pages compared at 108 dpi; zero unexpected pixels",
+        "All changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 23
+    "ms": 25
   },
   {
     "id": "22-rotation",
@@ -630,17 +650,18 @@
       "outsidePixels": 0,
       "checkedPages": 1,
       "checks": [
-        "Reopened exported PDF",
+        "Reopened combined exported PDF",
         "Page count preserved",
-        "Replacement searchable in target region",
-        "Original target removed",
-        "Neighboring text positions preserved",
+        "1 replacements searchable in their target regions",
+        "Original targets removed",
+        "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
-        "All pages compared at 108 dpi; zero unexpected pixels"
+        "All pages compared at 108 dpi; zero unexpected pixels",
+        "All changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 23
+    "ms": 25
   },
   {
     "id": "27-empty-replacement",
@@ -658,17 +679,18 @@
       "outsidePixels": 0,
       "checkedPages": 1,
       "checks": [
-        "Reopened exported PDF",
+        "Reopened combined exported PDF",
         "Page count preserved",
-        "Replacement searchable in target region",
-        "Original target removed",
-        "Neighboring text positions preserved",
+        "1 replacements searchable in their target regions",
+        "Original targets removed",
+        "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
-        "All pages compared at 108 dpi; zero unexpected pixels"
+        "All pages compared at 108 dpi; zero unexpected pixels",
+        "All changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 29
+    "ms": 26
   },
   {
     "id": "28-paragraph-tight",
@@ -686,17 +708,18 @@
       "outsidePixels": 0,
       "checkedPages": 1,
       "checks": [
-        "Reopened exported PDF",
+        "Reopened combined exported PDF",
         "Page count preserved",
-        "Replacement searchable in target region",
-        "Original target removed",
-        "Neighboring text positions preserved",
+        "1 replacements searchable in their target regions",
+        "Original targets removed",
+        "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
-        "All pages compared at 108 dpi; zero unexpected pixels"
+        "All pages compared at 108 dpi; zero unexpected pixels",
+        "All changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 24
+    "ms": 30
   },
   {
     "id": "29-embedded-full",
@@ -730,5 +753,34 @@
     "category": "embedded-font",
     "result": "EXPECTED UNSUPPORTED",
     "reason": "Replacement text must use printable Latin ASCII characters. Unicode fonts are not yet supported."
+  },
+  {
+    "id": "32-batch-invoice",
+    "target": "0089033",
+    "replacement": "1000",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "dense-invoice-batch",
+    "result": "PASS",
+    "validation": {
+      "status": "SAFE_TO_APPLY",
+      "pageCount": 3,
+      "changedPixels": 364,
+      "outsidePixels": 0,
+      "checkedPages": 3,
+      "checks": [
+        "Reopened combined exported PDF",
+        "Page count preserved",
+        "1 replacements searchable in their target regions",
+        "Original targets removed",
+        "All unaffected text positions and styles preserved",
+        "Links and annotations preserved",
+        "All pages compared at 108 dpi; zero unexpected pixels",
+        "All changes validated together; one atomic transaction"
+      ]
+    },
+    "independent": "PDF.js reopened and extracted replacement",
+    "ms": 86
   }
 ]

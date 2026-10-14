@@ -4,7 +4,7 @@
   "main": "worker/index.ts",
   "compatibility_date": "2026-10-14",
   "workers_dev": true,
-  "vars": { "ENABLE_AI": "false", "GROQ_MODEL": "openai/gpt-oss-20b", "ALLOWED_ORIGIN": "https://ai-pdf-editor.pages.dev", "TURNSTILE_SITE_KEY": "" },
+  "vars": { "ENABLE_AI": "false", "GROQ_MODEL": "openai/gpt-oss-120b", "ALLOWED_ORIGIN": "https://ai-pdf-editor.pages.dev", "TURNSTILE_SITE_KEY": "" },
   "durable_objects": { "bindings": [{"name":"BUDGET", "class_name":"AIBudget"}] },
   "migrations": [{"tag":"v1", "new_sqlite_classes":["AIBudget"]}],
   "observability": {"enabled":false}

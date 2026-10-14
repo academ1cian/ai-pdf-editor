@@ -1,0 +1,476 @@
+{
+  "run": 38616658667,
+  "commit": "f8d01cff04ef70205e53bc68250ba7417be2506a",
+  "selectedModel": "openai/gpt-oss-120b",
+  "limitsSource": "https://console.groq.com/docs/rate-limits",
+  "results": [
+    {
+      "model": "openai/gpt-oss-20b",
+      "case": "resume correction",
+      "passed": true,
+      "finish": "stop",
+      "tokens": 773,
+      "limits": {
+        "requests": "1000",
+        "tokensPerMinute": "8000"
+      },
+      "rawProposal": {
+        "edits": [
+          {
+            "id": "edit-1",
+            "operation": "replace",
+            "page": 1,
+            "blockId": "resume-title",
+            "original": "Sales Manager",
+            "replacement": "Team Lead",
+            "explanation": "Updated job title as requested",
+            "ambiguity": "none",
+            "fieldType": "text",
+            "label": "Job Title",
+            "calculation": null
+          }
+        ],
+        "clarification": ""
+      },
+      "proposal": {
+        "edits": [
+          {
+            "id": "edit-1",
+            "operation": "replace",
+            "page": 1,
+            "blockId": "resume-title",
+            "original": "Sales Manager",
+            "replacement": "Team Lead",
+            "explanation": "Updated job title as requested",
+            "ambiguity": "none",
+            "fieldType": "text",
+            "label": "Job Title",
+            "calculation": null
+          }
+        ],
+        "clarification": ""
+      }
+    },
+    {
+      "model": "openai/gpt-oss-20b",
+      "case": "ambiguous financial instruction",
+      "passed": false,
+      "finish": "stop",
+      "tokens": 2159,
+      "limits": {
+        "requests": "1000",
+        "tokensPerMinute": "8000"
+      },
+      "rawProposal": {
+        "edits": [
+          {
+            "id": "e1",
+            "operation": "replace",
+            "page": 1,
+            "blockId": "p0l5",
+            "original": "1205.00",
+            "replacement": "1000.00",
+            "explanation": "Updated rate to requested value",
+            "ambiguity": "none",
+            "fieldType": "rate",
+            "label": "RATE",
+            "calculation": null
+          },
+          {
+            "id": "e2",
+            "operation": "replace",
+            "page": 1,
+            "blockId": "p0l6",
+            "original": "1205.00",
+            "replacement": "1000.00",
+            "explanation": "Updated charge to match new rate",
+            "ambiguity": "none",
+            "fieldType": "charge",
+            "label": "CHARGES",
+            "calculation": {
+              "operation": "product",
+              "sources": [
+                {
+                  "blockId": "p0l4",
+                  "page": 1,
+                  "original": "1"
+                },
+                {
+                  "blockId": "p0l5",
+                  "page": 1,
+                  "original": "1000.00"
+                }
+              ]
+            }
+          },
+          {
+            "id": "e3",
+            "operation": "replace",
+            "page": 1,
+            "blockId": "p0l8",
+            "original": "90.00",
+            "replacement": "1000.00",
+            "explanation": "Updated rate to requested value",
+            "ambiguity": "none",
+            "fieldType": "rate",
+            "label": "RATE",
+            "calculation": null
+          },
+          {
+            "id": "e4",
+            "operation": "replace",
+            "page": 1,
+            "blockId": "p0l9",
+            "original": "90.00",
+            "replacement": "1000.00",
+            "explanation": "Updated charge to match new rate",
+            "ambiguity": "none",
+            "fieldType": "charge",
+            "label": "CHARGES",
+            "calculation": {
+              "operation": "product",
+              "sources": [
+                {
+                  "blockId": "p0l7",
+                  "page": 1,
+                  "original": "1"
+                },
+                {
+                  "blockId": "p0l8",
+                  "page": 1,
+                  "original": "1000.00"
+                }
+              ]
+            }
+          },
+          {
+            "id": "e5",
+            "operation": "replace",
+            "page": 1,
+            "blockId": "p0l11",
+            "original": "1295.00",
+            "replacement": "2000.00",
+            "explanation": "Recalculated total from updated charges",
+            "ambiguity": "none",
+            "fieldType": "total",
+            "label": "TOTAL",
+            "calculation": {
+              "operation": "sum",
+              "sources": [
+                {
+                  "blockId": "p0l6",
+                  "page": 1,
+                  "original": "1000.00"
+                },
+                {
+                  "blockId": "p0l9",
+                  "page": 1,
+                  "original": "1000.00"
+                }
+              ]
+            }
+          }
+        ],
+        "clarification": ""
+      },
+      "proposal": {
+        "edits": [],
+        "clarification": "This context contains 2 rate values and 2 charge values. Which row(s) should be set to the requested amount, and should the other rows stay unchanged?"
+      }
+    },
+    {
+      "model": "openai/gpt-oss-20b",
+      "case": "explicit first row and total",
+      "passed": false,
+      "finish": "stop",
+      "tokens": 1999,
+      "limits": {
+        "requests": "1000",
+        "tokensPerMinute": "8000"
+      },
+      "rawProposal": {
+        "edits": [
+          {
+            "id": "e1",
+            "operation": "replace",
+            "page": 1,
+            "blockId": "p0l5",
+            "original": "1205.00",
+            "replacement": "1000.00",
+            "explanation": "First row rate changed to 1000.00",
+            "ambiguity": "none",
+            "fieldType": "rate",
+            "label": "RATE",
+            "calculation": null
+          },
+          {
+            "id": "e2",
+            "operation": "replace",
+            "page": 1,
+            "blockId": "p0l6",
+            "original": "1205.00",
+            "replacement": "1000.00",
+            "explanation": "First row charge changed to 1000.00",
+            "ambiguity": "none",
+            "fieldType": "charge",
+            "label": "CHARGES",
+            "calculation": null
+          },
+          {
+            "id": "e3",
+            "operation": "replace",
+            "page": 1,
+            "blockId": "p0l11",
+            "original": "1295.00",
+            "replacement": "1090.00",
+            "explanation": "Total recalculated as 1000.00 + 90.00",
+            "ambiguity": "none",
+            "fieldType": "total",
+            "label": "TOTAL",
+            "calculation": {
+              "operation": "sum",
+              "sources": [
+                {
+                  "blockId": "p0l6",
+                  "page": 1,
+                  "original": "1000.00"
+                },
+                {
+                  "blockId": "p0l9",
+                  "page": 1,
+                  "original": "90.00"
+                }
+              ]
+            }
+          }
+        ],
+        "clarification": ""
+      },
+      "proposal": {
+        "edits": [],
+        "clarification": "The calculation sources could not be uniquely established."
+      }
+    },
+    {
+      "model": "openai/gpt-oss-120b",
+      "case": "resume correction",
+      "passed": true,
+      "finish": "stop",
+      "tokens": 834,
+      "limits": {
+        "requests": "1000",
+        "tokensPerMinute": "8000"
+      },
+      "rawProposal": {
+        "edits": [
+          {
+            "id": "edit-1",
+            "operation": "replace",
+            "page": 1,
+            "blockId": "resume-title",
+            "original": "Sales Manager",
+            "replacement": "Team Lead",
+            "explanation": "Replace the title text as requested.",
+            "ambiguity": "none",
+            "fieldType": "text",
+            "label": "Sales Manager",
+            "calculation": null
+          }
+        ],
+        "clarification": ""
+      },
+      "proposal": {
+        "edits": [
+          {
+            "id": "edit-1",
+            "operation": "replace",
+            "page": 1,
+            "blockId": "resume-title",
+            "original": "Sales Manager",
+            "replacement": "Team Lead",
+            "explanation": "Replace the title text as requested.",
+            "ambiguity": "none",
+            "fieldType": "text",
+            "label": "Sales Manager",
+            "calculation": null
+          }
+        ],
+        "clarification": ""
+      }
+    },
+    {
+      "model": "openai/gpt-oss-120b",
+      "case": "ambiguous financial instruction",
+      "passed": true,
+      "finish": "stop",
+      "tokens": 1782,
+      "limits": {
+        "requests": "1000",
+        "tokensPerMinute": "8000"
+      },
+      "rawProposal": {
+        "edits": [],
+        "clarification": "You asked to change the charges and the rate to 1000 and update the total accordingly. The document contains two separate line items (rows). Should the rate and charge for both rows be set to 1000, or only for a specific row? Please specify which row(s) to modify."
+      },
+      "proposal": {
+        "edits": [],
+        "clarification": "This context contains 2 rate values and 2 charge values. Which row(s) should be set to the requested amount, and should the other rows stay unchanged?"
+      }
+    },
+    {
+      "model": "openai/gpt-oss-120b",
+      "case": "explicit first row and total",
+      "passed": true,
+      "finish": "stop",
+      "tokens": 2289,
+      "limits": {
+        "requests": "1000",
+        "tokensPerMinute": "8000"
+      },
+      "rawProposal": {
+        "edits": [
+          {
+            "id": "edit1",
+            "operation": "replace",
+            "page": 1,
+            "blockId": "p0l5",
+            "original": "1205.00",
+            "replacement": "1000.00",
+            "explanation": "Set first row rate to 1000.00 as requested.",
+            "ambiguity": "none",
+            "fieldType": "rate",
+            "label": "RATE",
+            "calculation": null
+          },
+          {
+            "id": "edit2",
+            "operation": "replace",
+            "page": 1,
+            "blockId": "p0l6",
+            "original": "1205.00",
+            "replacement": "1000.00",
+            "explanation": "First row charge matches updated rate (rate × quantity = 1000.00 × 1).",
+            "ambiguity": "none",
+            "fieldType": "charge",
+            "label": "CHARGES",
+            "calculation": {
+              "operation": "product",
+              "sources": [
+                {
+                  "blockId": "p0l5",
+                  "page": 1,
+                  "original": "1205.00"
+                },
+                {
+                  "blockId": "p0l4",
+                  "page": 1,
+                  "original": "1"
+                }
+              ]
+            }
+          },
+          {
+            "id": "edit3",
+            "operation": "replace",
+            "page": 1,
+            "blockId": "p0l11",
+            "original": "1295.00",
+            "replacement": "1090.00",
+            "explanation": "Recalculate total as sum of the two charge rows (1000.00 + 90.00).",
+            "ambiguity": "none",
+            "fieldType": "total",
+            "label": "TOTAL",
+            "calculation": {
+              "operation": "sum",
+              "sources": [
+                {
+                  "blockId": "p0l6",
+                  "page": 1,
+                  "original": "1205.00"
+                },
+                {
+                  "blockId": "p0l9",
+                  "page": 1,
+                  "original": "90.00"
+                }
+              ]
+            }
+          }
+        ],
+        "clarification": ""
+      },
+      "proposal": {
+        "edits": [
+          {
+            "id": "edit1",
+            "operation": "replace",
+            "page": 1,
+            "blockId": "p0l5",
+            "original": "1205.00",
+            "replacement": "1000.00",
+            "explanation": "Set first row rate to 1000.00 as requested.",
+            "ambiguity": "none",
+            "fieldType": "rate",
+            "label": "RATE",
+            "calculation": null
+          },
+          {
+            "id": "edit2",
+            "operation": "replace",
+            "page": 1,
+            "blockId": "p0l6",
+            "original": "1205.00",
+            "replacement": "1000.00",
+            "explanation": "First row charge matches updated rate (rate × quantity = 1000.00 × 1). Calculation: 1000.00 × 1 = 1000.00. Verify the source fields before approval.",
+            "ambiguity": "none",
+            "fieldType": "charge",
+            "label": "CHARGES",
+            "calculation": {
+              "operation": "product",
+              "sources": [
+                {
+                  "blockId": "p0l5",
+                  "page": 1,
+                  "original": "1205.00"
+                },
+                {
+                  "blockId": "p0l4",
+                  "page": 1,
+                  "original": "1"
+                }
+              ]
+            }
+          },
+          {
+            "id": "edit3",
+            "operation": "replace",
+            "page": 1,
+            "blockId": "p0l11",
+            "original": "1295.00",
+            "replacement": "1090.00",
+            "explanation": "Recalculate total as sum of the two charge rows (1000.00 + 90.00). Calculation: 1000.00 + 90.00 = 1090.00. Verify the source fields before approval.",
+            "ambiguity": "none",
+            "fieldType": "total",
+            "label": "TOTAL",
+            "calculation": {
+              "operation": "sum",
+              "sources": [
+                {
+                  "blockId": "p0l6",
+                  "page": 1,
+                  "original": "1205.00"
+                },
+                {
+                  "blockId": "p0l9",
+                  "page": 1,
+                  "original": "90.00"
+                }
+              ]
+            }
+          }
+        ],
+        "clarification": ""
+      }
+    }
+  ]
+}

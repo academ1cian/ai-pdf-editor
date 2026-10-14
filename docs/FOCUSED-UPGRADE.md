@@ -18,3 +18,5 @@ Controlled local reflow, moving neighbors, custom/embedded fonts, OCR and comple
 ## Verification
 Focused regressions cover dense invoice numeric replacement/right alignment, marginal width expansion and bounded type reduction, unsafe header targeting, deterministic totals, atomic batch/one-step undo, actual-usage accounting/refunds, independent PDF.js extraction and neighboring content/pixel preservation. Hosted workflows run existing browser compatibility tests as well.
 A small real Groq benchmark compares 20B and 120B on synthetic resume, ambiguous invoice and explicit financial instructions. These are limited observations, not a claim of professional-grade document understanding.
+
+Final comparison: hosted run 38616658667 tested the same three synthetic scenarios per model. GPT-OSS-120B passed 3/3; GPT-OSS-20B passed 1/3 (it guessed ambiguous intent and supplied proposed rather than original calculation sources). 120B is selected. Both returned 1,000-request/day and 8,000-token/minute response limits. The application rejects unsupported plans regardless of model. See tests/evidence/focused-model-benchmark.json.

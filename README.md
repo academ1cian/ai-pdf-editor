@@ -20,7 +20,7 @@ Careful corrections to existing PDF text, with an explicit review step and check
 
 ## Honest support boundaries
 
-This release edits short **printable Latin ASCII spans in standard Helvetica, Times and Courier PDF fonts**. Selections can span unrelated locations, lines and pages. Multi-line selections keep one replacement per original line; each span preserves its own baseline. Replacement width must fit the original span. It preserves original size, baseline and color; it does not shrink text, substitute fonts or reflow paragraphs.
+This release edits short **printable Latin ASCII spans in standard Helvetica, Times and Courier PDF fonts**. Selections can span unrelated locations, lines and pages. Multi-line selections keep one replacement per original line; each span preserves its own baseline. Fitting first preserves font size and baseline, then uses measured adjacent whitespace (at most 36 pt), bounded by text, borders and images. At most 5% font reduction is shown explicitly in review. Recognized numeric columns retain their right edge. It does not substitute fonts, move neighbors or reflow paragraphs.
 
 Embedded/subset/custom fonts (including Cyrillic), scans, forms/signatures, encrypted/restricted/repaired PDFs, tagged semantic trees, rotation/skew, clipping, outlined/transparent text and difficult overlaps are rejected or view-only. Upload limits: 15 MB, 80 pages, bounded page dimensions and text counts. History: 20 transactions or 80 MB; up to 40 changes per batch. Engine work runs in a Web Worker with a 45-second timeout.
 
@@ -30,9 +30,9 @@ Validation at 108 dpi is evidence, not a guarantee of every printer, viewer or P
 
 **32 distinct synthetic PDFs investigated: 24 PASS, 8 EXPECTED UNSUPPORTED, 0 FAIL.** Fixtures cover English, Cyrillic, standard/embedded/subset fonts, font styles/sizes, longer/shorter strings, duplicates, multiple pages, resumes, invoices, tables, vectors, nearby text, colors, hyperlinks and difficult cases. They contain no real private information.
 
-Every successful proof-of-concept export reopened with independent PDF.js extraction. Every affected and unaffected page was raster-compared at 108 dpi; zero unexpected pixels outside the original target span plus a two-pixel antialias margin. The original input remained unchanged. See [engine decision](docs/ADR-001-pdf-engine.md), [test matrix](docs/TEST-MATRIX.md) and [machine-readable evidence](tests/evidence/results.json).
+Every successful proof-of-concept export reopened with independent PDF.js extraction. Every affected and unaffected page was raster-compared at 108 dpi; zero unexpected pixels outside each original/new text region plus a two-pixel antialias margin. The original input remained unchanged. See [engine decision](docs/ADR-001-pdf-engine.md), [test matrix](docs/TEST-MATRIX.md) and [machine-readable evidence](tests/evidence/results.json).
 
-The hosted quality gate runs unit/integration/safety tests, the 32-PDF proof, typecheck/lint/build, Worker compilation, and **24 browser tests across Chromium, Firefox and WebKit**. All 24 browser cases passed. The actual public deployment passed **8 Chromium smoke cases**, including a manual batch → real download → independent PDF.js verification → one-step undo, with zero AI requests. [Batch architecture and evidence](docs/BATCH-EDITING.md) documents the transaction model and the screenshot invoice's remaining document-specific investigation.
+The hosted quality gate runs unit/integration/safety tests, the 32-PDF proof, typecheck/lint/build, Worker compilation, and **browser tests across Chromium, Firefox and WebKit**. The previous release passed all 24 cases; the focused upgrade adds a dense invoice export/undo case in each browser. The actual public deployment passed **8 Chromium smoke cases**, including a manual batch → real download → independent PDF.js verification → one-step undo, with zero AI requests. [Batch architecture and evidence](docs/BATCH-EDITING.md) documents the transaction model and the screenshot invoice's remaining document-specific investigation.
 
 ## Architecture
 
@@ -44,7 +44,7 @@ flowchart LR
     R --> E[MuPDF redaction + page text insertion]
     E --> V[Reopen + structural + pixel validation]
     V --> D[Validated PDF download]
-    M -.consented current-page text.-> API[Cloudflare Pages API binding]
+    M -.consented relevant text and layout.-> API[Cloudflare Pages API binding]
     API --> P[Worker: request + Turnstile checks]
     P --> B[SQLite Durable Object budget]
     B --> G[Groq strict structured proposal]
@@ -55,9 +55,9 @@ The reusable engine (`src/engine`) is independent of React. It separates extract
 
 ## AI and privacy
 
-Groq `openai/gpt-oss-20b` supports strict JSON-schema outputs as verified on 2026-10-14. The selected ID is configurable from a documented allowlist. Zod validates both incoming context and proposed edits; the proxy resolves references against actual supplied blocks and the client re-resolves targets before deterministic layout checks.
+Groq `openai/gpt-oss-120b` was selected after the focused synthetic comparison (3/3 cases versus 1/3 for 20B); it supports strict JSON-schema outputs as verified on 2026-10-14. The selected ID is configurable from a documented allowlist. Zod validates both incoming context and proposed edits; the proxy resolves references against actual supplied blocks and the client re-resolves targets before deterministic layout checks.
 
-Only consented current-page extracted text (up to 12,000 characters), block references and the instruction go to Groq. PDFs are never uploaded/stored. No content logging or analytics. Turnstile verification requires the actual hostname/action; origin, payload, output and token limits fail closed. An atomic SQLite Durable Object reserves a global 40 requests / 50,000 conservative tokens per UTC day and limits each client to 2/minute and 6/day. Failed requests are not refunded. Hashes are day-scoped and salted; raw IPs are not stored in budget counters.
+Only consented relevant extracted text, positions, page/block references and label/value hints go to Groq (up to 50 lines in a compact payload, with an exact preview before sending). Context may include other pages. PDFs are never uploaded/stored. No content logging or analytics. Turnstile verification requires the actual hostname/action; origin, payload and output limits fail closed. SQLite Durable Object caps are 80 requests / 100,000 tokens per UTC day globally, 30/day and 4/minute per browser session, and 60/day and 12/minute per shared network. Reservations reconcile actual provider usage; confirmed provider rejections refund tokens/day counts, while uncertain network failures retain their reservation. Day-salted hashes store no raw IP or document text. Financial arithmetic uses verified fixed-point relationships, and ambiguous instructions ask for clarification before any edits. See [focused changes and limitations](docs/FOCUSED-UPGRADE.md).
 
 ## Development and remote verification
 
@@ -84,7 +84,7 @@ Use [GitHub repository secrets](https://github.com/academ1cian/ai-pdf-editor/set
 
 | Secret | Purpose |
 |---|---|
-| `GROQ_API_KEY` | Groq Free provider key; only the secret-provisioning step receives it |
+| `GROQ_API_KEY` | Groq Free provider key; only Worker provisioning and the bounded hosted synthetic benchmark receive it |
 | `CLOUDFLARE_API_TOKEN` | Scoped Pages/Worker deployment and read-only plan verification |
 | `CLOUDFLARE_ACCOUNT_ID` | Chosen Cloudflare account |
 | `TURNSTILE_SECRET` | Server verification secret for the real widget |

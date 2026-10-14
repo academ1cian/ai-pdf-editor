@@ -1,0 +1,39 @@
+name: Independently verify focused production AI export
+on:
+  workflow_dispatch:
+    inputs:
+      pdf_base64:
+        description: Actual production browser export of the synthetic focused invoice only (base64)
+        required: true
+        type: string
+      client_commit:
+        description: Loaded production client commit
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.client_commit }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm fixtures
+      - run: node scripts/verify-focused-ai.mjs
+        env:
+          FOCUSED_PDF_BASE64: ${{ inputs.pdf_base64 }}
+          CLIENT_COMMIT: ${{ inputs.client_commit }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: focused-production-ai-evidence
+          path: tests/evidence/focused-production-ai.*
+          retention-days: 3

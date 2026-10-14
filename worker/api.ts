@@ -24,7 +24,7 @@ function enabled(env: AIEnv): boolean {
     !!env.TURNSTILE_SITE_KEY &&
     !!env.ALLOWED_ORIGIN &&
     !!env.BUDGET &&
-    MODELS.has(env.GROQ_MODEL || 'openai/gpt-oss-20b')
+    MODELS.has(env.GROQ_MODEL || 'openai/gpt-oss-120b')
   );
 }
 function json(data: unknown, status = 200, origin?: string): Response {
@@ -196,7 +196,7 @@ export async function handleAPI(
       method: 'POST',
       headers: { Authorization: `Bearer ${env.GROQ_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: env.GROQ_MODEL || 'openai/gpt-oss-20b',
+        model: env.GROQ_MODEL || 'openai/gpt-oss-120b',
         messages,
         response_format: responseFormat,
         max_completion_tokens: 1200,
@@ -207,9 +207,10 @@ export async function handleAPI(
     });
     if (!provider.ok) {
       // Confirmed provider rejection did not generate output; refund tokens/day counts, retain minute abuse attempts.
-      await settle(undefined,true);
+      const rejected=provider.status<500;
+      await settle(undefined,rejected);
       const retryAfter=Math.min(86400,Math.max(1,Number(provider.headers.get('retry-after'))||60));
-      return json({error:provider.status===429?'Groq rate limit reached. The application reservation was refunded. Retry after '+retryAfter+' seconds.':'Groq rejected the request; the application reservation was refunded.',code:provider.status===429?'provider_rate_limit':'provider_rejected',retryAfter},provider.status===429?429:502,allowed);
+      return json({error:provider.status===429?'Groq rate limit reached. The application reservation was refunded. Retry after '+retryAfter+' seconds.':rejected?'Groq rejected the request; the application reservation was refunded.':'Groq is temporarily unavailable. Its usage is uncertain, so the conservative reservation is retained.',code:provider.status===429?'provider_rate_limit':rejected?'provider_rejected':'provider_unavailable',retryAfter},provider.status===429?429:502,allowed);
     }
     const data = (await provider.json()) as {
       choices?: { message?: { content?: string }; finish_reason?: string }[];

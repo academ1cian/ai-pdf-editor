@@ -87,22 +87,40 @@ export interface BatchProposal {
 }
 export function glyphsForTarget(line: Line, target: Pick<Target, 'start' | 'end'>): Glyph[] {
   let offset = 0;
-  return line.glyphs.filter(g => {
+  return line.glyphs.filter((g) => {
     const start = offset;
     offset += g.text.length;
     return start >= target.start && offset <= target.end;
   });
 }
-export function targetFromRange(model: DocumentModel, pageIndex: number, lineId: string, start: number, end: number): Target | undefined {
-  const line = model.pages[pageIndex]?.lines.find(l => l.id === lineId);
-  if (!line || !Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end <= start || end > line.text.length) return;
-  const glyphs = glyphsForTarget(line, {start, end});
-  if (!glyphs.length || glyphs.map(g => g.text).join('') !== line.text.slice(start, end)) return;
+export function targetFromRange(
+  model: DocumentModel,
+  pageIndex: number,
+  lineId: string,
+  start: number,
+  end: number,
+): Target | undefined {
+  const line = model.pages[pageIndex]?.lines.find((l) => l.id === lineId);
+  if (
+    !line ||
+    !Number.isInteger(start) ||
+    !Number.isInteger(end) ||
+    start < 0 ||
+    end <= start ||
+    end > line.text.length
+  )
+    return;
+  const glyphs = glyphsForTarget(line, { start, end });
+  if (!glyphs.length || glyphs.map((g) => g.text).join('') !== line.text.slice(start, end)) return;
   return {
     revision: model.revision,
     id: `${model.revision || ''}:${pageIndex}:${lineId}:${start}:${end}`,
-    page: pageIndex, line: lineId, start, end,
-    original: line.text.slice(start, end), rect: union(glyphs.map(g => g.rect)),
+    page: pageIndex,
+    line: lineId,
+    start,
+    end,
+    original: line.text.slice(start, end),
+    rect: union(glyphs.map((g) => g.rect)),
   };
 }
 export function findTargets(model: DocumentModel, query: string): Target[] {

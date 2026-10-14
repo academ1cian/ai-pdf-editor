@@ -20,13 +20,13 @@ self.onmessage = ({ data }: { data: { id: number; type: string; payload: unknown
         result = engine.renderPDF(history.current, page, scale);
       } else if (type === 'propose')
         result = engine.proposePDF(history.current, payload as Operation);
-      else if (type === 'proposeBatch') result = engine.proposeBatchPDF(history.current, payload as Operation[]);
+      else if (type === 'proposeBatch')
+        result = engine.proposeBatchPDF(history.current, payload as Operation[]);
       else if (type === 'applyBatch') {
         const output = engine.applyBatchPDF(history.current, payload as Operation[]);
         history.commit(output.bytes);
-        result = {model: output.model, validation: output.validation, edits: history.length};
-      }
-      else if (type === 'apply') {
+        result = { model: output.model, validation: output.validation, edits: history.length };
+      } else if (type === 'apply') {
         const output = engine.applyPDF(history.current, payload as Operation);
         history.commit(output.bytes);
         result = { model: output.model, validation: output.validation, edits: history.length };

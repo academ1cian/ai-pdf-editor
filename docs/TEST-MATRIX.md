@@ -2,7 +2,7 @@
 
 Run `pnpm fixtures` then `pnpm poc`. Fixtures are synthetic and redistributable; they are generated with pdf-lib, with full/subset Liberation Sans from the PDF.js distribution for font-coverage cases. No genuine personal, employee, customer or financial records.
 
-Executed gate: **31 distinct PDFs; 23 PASS; 8 EXPECTED UNSUPPORTED; 0 FAIL.** Repeated copies are not counted as distinct fixtures. Supporting JSON: `tests/evidence/results.json`. Successful edits have reopened bytes, preserved page count, exact replacement/removal within the region, selectable/searchable text checked independently by PDF.js, unaffected glyph geometry, preserved links, and all-page pixel comparisons with zero unexpected pixels beyond the original span plus two-pixel raster margin.
+Executed gate: **32 distinct PDFs; 24 PASS; 8 EXPECTED UNSUPPORTED; 0 FAIL.** Repeated copies are not counted as distinct fixtures. Supporting JSON: `tests/evidence/results.json`. Successful edits have reopened bytes, preserved page count, exact replacement/removal within the region, selectable/searchable text checked independently by PDF.js, unaffected glyph geometry, preserved links, and all-page pixel comparisons with zero unexpected pixels beyond the original span plus two-pixel raster margin.
 
 | ID | Scenario | Result |
 |---|---|---|
@@ -37,13 +37,16 @@ Executed gate: **31 distinct PDFs; 23 PASS; 8 EXPECTED UNSUPPORTED; 0 FAIL.** Re
 | 29 | Fully embedded Liberation Sans | EXPECTED UNSUPPORTED — no font substitution |
 | 30 | Subset Liberation Sans | EXPECTED UNSUPPORTED — no font substitution |
 | 31 | Russian/Cyrillic text | EXPECTED UNSUPPORTED — Unicode editing not supported |
+| 32 | Dense three-page invoice, Helvetica-Bold 9.8 pt and multiple field edits | PASS |
 
 The scan analogue tests absence of selectable text; it is not counted as a photographic scan/OCR benchmark. Full arbitrary embedded-font support is not implied by successful standard-font cases.
 
 ## Additional automated checks
 
-Executed GitHub-hosted Vitest suite: **34 tests, all pass**. Coverage includes exact/missing/ambiguous targets, normalization, forged rectangles/stale references, repeated edits/undo/reset/source immutability, unsupported fonts, overflow, real encrypted PDFs, corruption/type/size limits, Unicode/newline rejection, opacity/overlap/clipping, a 20-page document, validation evidence, strict AI schemas, allowed origins, Turnstile host/action, persistent budget decisions, provider/network/malformed-output errors, resolved proposals, subscription-plan rejection and secret-provisioning isolation.
+The Vitest suite contains **46 unit/integration/safety tests**; actual run results are retained in [GitHub Actions](https://github.com/academ1cian/ai-pdf-editor/actions). Coverage includes exact/missing/ambiguous targets, normalization, forged rectangles/stale references, repeated edits/undo/reset/source immutability, unsupported fonts, overflow, real encrypted PDFs, corruption/type/size limits, Unicode/newline rejection, opacity/overlap/clipping, a 20-page document, validation evidence, strict AI schemas, allowed origins, Turnstile host/action, persistent budget decisions, provider/network/malformed-output errors, resolved proposals, subscription-plan rejection and secret-provisioning isolation.
 
-Executed GitHub-hosted browser suite: **12 tests, all pass** across Chromium, Firefox and WebKit (four each). Upload → render → manual review → apply → download → independent PDF.js extraction → unchanged original → undo/reset; invalid files/mobile layout; duplicate selection/overflow/scan handling; sample workflow; WCAG2 A/AA audits and keyboard privacy-dialog dismissal. Both production JS and WASM are exercised.
+Executed GitHub-hosted browser suite: **24 tests, all pass** across Chromium, Firefox and WebKit (eight each). Upload → render → manual review → apply → download → independent PDF.js extraction → unchanged original → undo/reset; invalid files/mobile layout; duplicate selection/overflow/scan handling; sample workflow; WCAG2 A/AA audits and keyboard privacy-dialog dismissal. Both production JS and WASM are exercised.
 
-Actual public HTTPS deployment: **4 Chromium smoke cases, all pass**, with exact commit verification. Real browser Turnstile and Groq returned the requested synthetic name replacement. The actual downloaded AI export independently passed PDF.js comparison on a hosted runner. Mocked API unit tests are separate from this real provider evidence. See [production verification](PRODUCTION-VERIFICATION.md) for run links, hashes, provenance and console observations.
+Actual public HTTPS deployment: **8 Chromium smoke cases, all pass**, with exact commit verification. Real browser Turnstile and Groq returned the requested synthetic name replacement. The actual downloaded AI export independently passed PDF.js comparison on a hosted runner. Mocked API unit tests are separate from this real provider evidence. See [production verification](PRODUCTION-VERIFICATION.md) for run links, hashes, provenance and console observations.
+
+Batch regression evidence: [manual multi-selection and transaction model](BATCH-EDITING.md). The two extra touching-glyph cases verify safe preflight rejection or preserved neighbors; they do not establish a reproduction of the screenshot invoice. That original file remains unverified without its bytes.

@@ -9,6 +9,8 @@ Careful corrections to existing PDF text, with an explicit review step and check
 ## What works
 
 - PDF upload/drop, multi-page navigation, zoom, fit-to-width, selectable text lines and exact find.
+- Exact partial-text and multi-line drag selection, Ctrl/Cmd-assisted addition, and persistent non-contiguous selections across pages.
+- Compact batch queue with individual replacements/inclusion/removal, a common replacement action, review/apply-all, and one-step undo for the entire atomic batch.
 - Explicit occurrence selection when text appears multiple times.
 - Review source/replacement, page/position, font/size, measured fit and rejection reasons.
 - Actual source-text removal through applied redaction, followed by real page-content insertion. No rectangle covering old text and no annotation-only mock edits.
@@ -18,19 +20,19 @@ Careful corrections to existing PDF text, with an explicit review step and check
 
 ## Honest support boundaries
 
-This release edits short **single-line printable Latin ASCII text in standard Helvetica, Times and Courier PDF fonts**. Replacement width must fit the original span. It preserves original size, baseline and color; it does not shrink text, substitute fonts or reflow paragraphs.
+This release edits short **printable Latin ASCII spans in standard Helvetica, Times and Courier PDF fonts**. Selections can span unrelated locations, lines and pages. Multi-line selections keep one replacement per original line; each span preserves its own baseline. Replacement width must fit the original span. It preserves original size, baseline and color; it does not shrink text, substitute fonts or reflow paragraphs.
 
-Embedded/subset/custom fonts (including Cyrillic), scans, forms/signatures, encrypted/restricted/repaired PDFs, tagged semantic trees, rotation/skew, clipping, outlined/transparent text and difficult overlaps are rejected or view-only. Upload limits: 15 MB, 80 pages, bounded page dimensions and text counts. History: 20 edits or 80 MB. Engine work runs in a Web Worker with a 45-second timeout.
+Embedded/subset/custom fonts (including Cyrillic), scans, forms/signatures, encrypted/restricted/repaired PDFs, tagged semantic trees, rotation/skew, clipping, outlined/transparent text and difficult overlaps are rejected or view-only. Upload limits: 15 MB, 80 pages, bounded page dimensions and text counts. History: 20 transactions or 80 MB; up to 40 changes per batch. Engine work runs in a Web Worker with a 45-second timeout.
 
 Validation at 108 dpi is evidence, not a guarantee of every printer, viewer or PDF feature. This editor is **not a certified document sanitization product**: content could also exist in metadata, attachments or other locations.
 
 ## Measured editing gate
 
-**31 distinct synthetic PDFs investigated: 23 PASS, 8 EXPECTED UNSUPPORTED, 0 FAIL.** Fixtures cover English, Cyrillic, standard/embedded/subset fonts, font styles/sizes, longer/shorter strings, duplicates, multiple pages, resumes, invoices, tables, vectors, nearby text, colors, hyperlinks and difficult cases. They contain no real private information.
+**32 distinct synthetic PDFs investigated: 24 PASS, 8 EXPECTED UNSUPPORTED, 0 FAIL.** Fixtures cover English, Cyrillic, standard/embedded/subset fonts, font styles/sizes, longer/shorter strings, duplicates, multiple pages, resumes, invoices, tables, vectors, nearby text, colors, hyperlinks and difficult cases. They contain no real private information.
 
 Every successful proof-of-concept export reopened with independent PDF.js extraction. Every affected and unaffected page was raster-compared at 108 dpi; zero unexpected pixels outside the original target span plus a two-pixel antialias margin. The original input remained unchanged. See [engine decision](docs/ADR-001-pdf-engine.md), [test matrix](docs/TEST-MATRIX.md) and [machine-readable evidence](tests/evidence/results.json).
 
-GitHub-hosted verification passed **34 unit/integration/safety tests** and **12 end-to-end tests across Chromium, Firefox and WebKit**, plus typecheck, lint, production build and Worker dry-run. The actual public deployment passed **4 Chromium production smoke cases**. A separate hosted PDF.js check independently verified the real AI-downloaded export: replacement searchable, original target absent, same page count and all other extracted text preserved.
+The hosted quality gate runs unit/integration/safety tests, the 32-PDF proof, typecheck/lint/build, Worker compilation, and **24 browser tests across Chromium, Firefox and WebKit**. All 24 browser cases passed. The actual public deployment passed **8 Chromium smoke cases**, including a manual batch → real download → independent PDF.js verification → one-step undo, with zero AI requests. [Batch architecture and evidence](docs/BATCH-EDITING.md) documents the transaction model and the screenshot invoice's remaining document-specific investigation.
 
 ## Architecture
 
@@ -94,6 +96,10 @@ Read [deployment instructions and minimum authorization](docs/DEPLOYMENT.md). De
 ## License and reuse
 
 Combined application: **AGPL-3.0-only**, with [full license](LICENSE) and [dependency inventory](docs/DEPENDENCY-LICENSES.md). MuPDF is AGPL-3.0-or-later, not MIT. Proprietary reuse of this combined engine requires replacing MuPDF or obtaining appropriate commercial licensing from Artifex. Preserve upstream notices and provide corresponding source when distributing or hosting modified versions. Self-hosted UI fonts use SIL OFL-1.1.
+
+## Known invoice-specific investigation
+
+The screenshot invoice produced “Validation failed: neighboring text changed.” A synthetic invoice using matching 9.8 pt standard-font geometry passes, and nearby-field/transaction regressions are covered. The original PDF bytes were not provided, so its exact failure is **not claimed fixed**. Integrity failures continue to block export and preserve the previous valid snapshot. A sanitized reproducing PDF is needed to finish that specific diagnosis.
 
 ## Next improvements
 

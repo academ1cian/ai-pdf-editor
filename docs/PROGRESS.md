@@ -57,3 +57,10 @@ This log is updated at meaningful milestones. Test and deployment claims must re
 - Expanded real browser tests found Firefox native selection expansion, now resolved from pointer endpoint glyphs, and a numeric option-selector ambiguity in the test, corrected to explicit values.
 - Refined only the landing illustration's content to a neutral project brief; preserved tilt, muted green styling and Small changes / Carefully made overlay.
 - Status: PARTIALLY COMPLETE for the new requirement until updated compatibility tests and actual production batch export verification pass. No AI/budget/Turnstile dependency or paid-service change was introduced.
+
+## 2026-10-14 — Manual batch production verification
+- Hosted 44 unit/integration/safety tests and all 24 Chromium/Firefox/WebKit browser cases passed for release cb70bfd28ef3be27e04ae8bf492d77847c72f53d.
+- Real public deployment passed all 8 hosted Chromium smoke cases (run 38603594003), including four non-contiguous replacements, persistent cross-page highlights, one combined export, independent PDF.js verification of every change, unchanged original and one-step undo. Zero /api/plan requests.
+- Preserved actual production batch PDF, SHA-256, review/applied screenshots and neutral project-brief landing screenshot under docs/evidence and docs/screenshots.
+- Added two extra touching-glyph boundary cases: one safely rejected in preflight; one preserves the neighbor and passes export validation. The original screenshot invoice remains unverified without its PDF bytes. No integrity guard was bypassed and no exact-file fix is claimed.
+- Manual batch editing and requested landing polish are released. The invoice-specific diagnosis remains open; the final evidence/test commit is gated by quality, deployment and public smoke checks before handoff.

@@ -11,6 +11,7 @@ test('real upload → review → apply → download → independent reopen → u
   const sourcePath = resolve('tests/fixtures/01-paragraph.pdf');
   const before = readFileSync(sourcePath);
   await page.goto('/');
+  await page.getByRole('tab',{name:'Find & replace',exact:true}).click();
   await expect(page.getByRole('heading', { name: /The right words/ })).toBeVisible();
   if (process.env.EXPECTED_COMMIT_SHA) {
     await expect(page.locator('[data-build-commit]')).toHaveAttribute(
@@ -73,6 +74,7 @@ test('real upload → review → apply → download → independent reopen → u
 });
 test('empty state, invalid file, no fake AI, and responsive layout', async ({ page }) => {
   await page.goto('/');
+  await page.getByRole('tab',{name:'Find & replace',exact:true}).click();
   await page.screenshot({ path: 'docs/screenshots/welcome.png', fullPage: true });
   await page
     .getByLabel('Upload PDF')
@@ -80,7 +82,7 @@ test('empty state, invalid file, no fake AI, and responsive layout', async ({ pa
   await expect(page.getByRole('alert')).toContainText('Choose a PDF');
   await page.getByRole('button', { name: 'Dismiss error' }).click();
   await page.getByRole('tab', { name: 'AI assistant' }).click();
-  await expect(page.getByRole('button', { name: 'Suggest changes' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Preview changes' })).toBeDisabled();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: 'docs/screenshots/mobile.png', fullPage: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
@@ -89,6 +91,7 @@ test('empty state, invalid file, no fake AI, and responsive layout', async ({ pa
 });
 test('duplicates require selection; overflow and scanned PDFs fail safely', async ({ page }) => {
   await page.goto('/');
+  await page.getByRole('tab',{name:'Find & replace',exact:true}).click();
   await page.getByLabel('Upload PDF').setInputFiles(resolve('tests/fixtures/12-duplicates.pdf'));
   await expect(page.getByRole('img')).toBeVisible();
   await page.getByLabel('Find in document').fill('John Smith');
@@ -104,6 +107,7 @@ test('duplicates require selection; overflow and scanned PDFs fail safely', asyn
 });
 test('sample workflow and accessible editor controls', async ({ page }) => {
   await page.goto('/');
+  await page.getByRole('tab',{name:'Find & replace',exact:true}).click();
   const emptyAudit = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
   expect(emptyAudit.violations).toEqual([]);
   await page.getByRole('button', { name: 'Just looking? Try a sample document' }).click();

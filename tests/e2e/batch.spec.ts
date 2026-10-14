@@ -29,6 +29,7 @@ test('manual non-contiguous batch across pages → atomic apply → real downloa
   const input = resolve('tests/fixtures/32-batch-invoice.pdf'),
     original = readFileSync(input);
   await page.goto('/');
+  await page.getByRole('tab',{name:'Find & replace',exact:true}).click();
   await page.getByLabel('Upload PDF').setInputFiles(input);
   await expect(page.getByRole('img', { name: 'PDF page 1' })).toBeVisible();
   await queueField(page, '0089033', '1000');
@@ -93,6 +94,7 @@ test('native drag selects exact fragments across two lines and adds both to pers
   page,
 }) => {
   await page.goto('/');
+  await page.getByRole('tab',{name:'Find & replace',exact:true}).click();
   await page.getByLabel('Upload PDF').setInputFiles(resolve('tests/fixtures/32-batch-invoice.pdf'));
   const first = page.getByRole('button', { name: 'Select text: Review required', exact: true });
   const last = page.getByRole('button', { name: 'Select text: Delivery pending', exact: true });
@@ -122,6 +124,7 @@ test('invalid item prevents entire batch; removing it permits one transaction, t
   page,
 }) => {
   await page.goto('/');
+  await page.getByRole('tab',{name:'Find & replace',exact:true}).click();
   await page.getByLabel('Upload PDF').setInputFiles(resolve('tests/fixtures/32-batch-invoice.pdf'));
   await queueField(page, '0089033', '1000');
   await queueField(page, '1205.00', 'This replacement is too long');
@@ -143,6 +146,7 @@ test('Ctrl/Cmd-assisted independent selection and common replacement work withou
   page,
 }) => {
   await page.goto('/');
+  await page.getByRole('tab',{name:'Find & replace',exact:true}).click();
   await page.getByLabel('Upload PDF').setInputFiles(resolve('tests/fixtures/12-duplicates.pdf'));
   const lines = page.getByRole('button', { name: 'Select text: John Smith', exact: true });
   await expect(lines).toHaveCount(2);

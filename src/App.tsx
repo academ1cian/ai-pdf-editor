@@ -40,8 +40,10 @@ import {
 } from './engine/model';
 import { AIPlanSchema, type AIPlan } from './ai/schema';
 
-import { buildContext } from './ai/context';
+import { buildContext, type ContextBlock } from './ai/context';
+import { resolvePlan } from './ai/resolve';
 
+type Preview = {id:string;model:DocumentModel;validation:Validation;operations:Operation[];proposals:Proposal[]};
 type Config = { enabled: boolean; siteKey?: string; reason?: string };
 type Change = { original: string; replacement: string; page: number; transaction: number };
 type QueuedChange = Operation & { included: boolean; note?: string };
@@ -97,7 +99,12 @@ export default function App() {
   const dragStart = useRef<
     { line: string; start: number; end: number; x: number; y: number } | undefined
   >(undefined);
-  const [tab, setTab] = useState<'manual' | 'ai'>('manual');
+  const [tab, setTab] = useState<'manual' | 'ai'>('ai');
+  const [preview,setPreview]=useState<Preview>();
+  const [compareOriginal,setCompareOriginal]=useState(false);
+  const [renderedSnapshot,setRenderedSnapshot]=useState('');
+  const [aiInterpretation,setAiInterpretation]=useState('');
+  const [aiAlternatives,setAiAlternatives]=useState<NonNullable<AIPlan['alternatives']>>([]);
   const [instruction, setInstruction] = useState('');
   const [config, setConfig] = useState<Config>({
     enabled: false,
@@ -203,6 +210,8 @@ export default function App() {
     setAiEdits([]);
     setAiClarification('');
     setDraftTargets([]);
+    setPreview(undefined);
+    setCompareOriginal(false);
   };
   const load = async (file: File) => {
     if (busy) return;
@@ -233,7 +242,7 @@ export default function App() {
       setQuery('');
       setReplacement('');
       clearReview();
-      setNotice('Document opened. Select a line or find the exact text you want to change.');
+      setNotice('Document opened. Describe your changes to preview the edited PDF.');
     } catch (e) {
       setError(String(e instanceof Error ? e.message : e));
     } finally {
@@ -246,11 +255,14 @@ export default function App() {
     let cancelled = false;
     let url = '';
     setRendering(true);
+    setRenderedSnapshot('');
+    const snapshot=preview&&!compareOriginal?preview.id:'original';
     const version = generation.current;
     getClient()
       .request<{ png: Uint8Array }>('render', {
         page,
         scale: Math.min(2, scale * window.devicePixelRatio),
+        previewId: preview&&!compareOriginal?preview.id:undefined,
       })
       .then((result) => {
         if (cancelled || version !== generation.current) return;
@@ -258,6 +270,7 @@ export default function App() {
           new Blob([result.png.slice().buffer as ArrayBuffer], { type: 'image/png' }),
         );
         setImage(url);
+        setRenderedSnapshot(snapshot+':'+page);
       })
       .catch((e) => {
         if (!cancelled) setError(e.message);
@@ -269,7 +282,7 @@ export default function App() {
       cancelled = true;
       if (url) URL.revokeObjectURL(url);
     };
-  }, [model, page, scale]);
+  }, [model, page, scale, preview, compareOriginal]);
   const choose = (target: Target) => {
     setSelected(target);
     setDraftTargets([]);
@@ -370,6 +383,8 @@ export default function App() {
   };
   const askAI = async () => {
     if (!model || busy || !consent || !config.enabled || !token) return;
+    if(queue.length){setError('Apply or clear the manual change list before preparing an AI preview.');return;}
+    setPreview(undefined);setCompareOriginal(false);setRenderedSnapshot('');
     setBusy('Preparing AI proposals…');
     setError('');
     try {
@@ -390,13 +405,16 @@ export default function App() {
       const plan = AIPlanSchema.parse(body);
       setAiEdits(plan.edits);
       setAiClarification(plan.clarification || '');
+      setAiInterpretation(plan.interpretation||'');
+      setAiAlternatives(plan.alternatives||[]);
+      if(plan.edits.length)await preparePreview(plan,context);
       const remaining=response.headers.get('X-AI-Remaining-Requests');
       const globalRequests=response.headers.get('X-AI-Global-Requests-Used');
       const globalTokens=response.headers.get('X-AI-Global-Tokens-Used');
       setAiQuota((remaining && remaining!=='unknown' ? remaining+' requests remain in this session’s application allowance. ' : '')+(globalRequests && globalTokens ? 'Shared application usage today: '+globalRequests+'/80 requests and '+globalTokens+'/100,000 tokens. ' : '')+'Groq rate limits are separate.');
       setNotice(
         plan.edits.length
-          ? 'Review the proposed fields, then add related changes to your batch.'
+          ? 'Review the actual edited document, then Apply & Download.'
           : plan.clarification || 'No matching edit was proposed. Try a more specific instruction.',
       );
     } catch (e) {
@@ -407,27 +425,30 @@ export default function App() {
       if (captchaId.current) window.turnstile?.reset(captchaId.current);
     }
   };
-  const chooseAI = async (edit: AIPlan['edits'][number]) => {
-    if (!model || busy) return;
-    const targets = findTargets(model, edit.original).filter(
-      (t) => t.page === edit.page - 1 && t.line === edit.blockId,
-    );
-    if (!targets.length) {
-      setError('AI referred to text that is not in this document. The proposal was rejected.');
-      return;
-    }
-    setQuery(edit.original);
-    setReplacement(edit.replacement);
-    setTab('manual');
-    setPage(edit.page - 1);
-    if (targets.length !== 1 || edit.ambiguity === 'needs_selection') {
-      setSelected(undefined);
-      setProposal(undefined);
-      setNotice('This AI proposal needs your selection. Choose the intended occurrence below.');
-      return;
-    }
-    setSelected(targets[0]);
-    await review(targets[0], edit.replacement);
+  const preparePreview=async(plan:AIPlan,context:ContextBlock[])=>{
+    if(!model)return;
+    const operations=resolvePlan(model,plan,context);
+    setBusy('Editing and checking a working copy…');
+    const result=await getClient().request<Preview>('previewBatch',operations);
+    setPreview(result);setCompareOriginal(false);setRenderedSnapshot('');
+    setPage(operations[0].target.page);
+  };
+  const approvePreview=async()=>{
+    if(!preview||busy||compareOriginal||renderedSnapshot!==preview.id+':'+page)return;
+    setBusy('Preparing your approved PDF…');setError('');
+    try{
+      const result=await getClient().request<{model:DocumentModel;validation:Validation;bytes:Uint8Array;edits:number}>('commitPreview',preview.id);
+      setModel(result.model);setValidation(result.validation);
+      setChanges(current=>[...current,...preview.operations.map(op=>({original:op.target.original,replacement:op.replacement,page:op.target.page+1,transaction:result.edits}))]);
+      setQueue([]);setBatchReview(undefined);clearReview();setQuery('');
+      save(result.bytes,name.replace(/\.pdf$/i,'')+'-edited.pdf');
+      setNotice('Approved PDF downloaded. One Undo restores all changes in this instruction.');
+    }catch(e){setError((e as Error).message);}finally{setBusy('');}
+  };
+  const discardPreview=()=>{
+    setPreview(undefined);setCompareOriginal(false);setAiEdits([]);setAiClarification('');setRenderedSnapshot('');
+    void getClient().request('discardPreview').catch(()=>{});
+    setNotice('Preview discarded. Your document is unchanged.');
   };
 
   const enqueue = (targets: Target[], replacements?: string[], notes?: string[]) => {
@@ -619,7 +640,8 @@ export default function App() {
       setBusy('');
     }
   };
-  const currentPage = model?.pages[page];
+  const displayModel=preview&&!compareOriginal?preview.model:model;
+  const currentPage = displayModel?.pages[page];
   const bounds = currentPage?.bounds;
   const pageWidth = bounds ? (bounds[2] - bounds[0]) * scale : 0;
   const pageHeight = bounds ? (bounds[3] - bounds[1]) * scale : 0;
@@ -627,6 +649,8 @@ export default function App() {
     <div
       className="app"
       data-build-commit={BUILD_COMMIT}
+      data-preview-id={preview?.id||''}
+      data-rendered-snapshot={renderedSnapshot}
       onDragOver={(e) => {
         e.preventDefault();
         if (!busy) setDragging(true);
@@ -692,7 +716,7 @@ export default function App() {
           </a>
           <button
             className="primary download"
-            disabled={!changes.length || !!busy || queue.length > 0}
+            disabled={!changes.length || !!busy || queue.length > 0 || !!preview}
             onClick={download}
           >
             <ArrowDownToLine size={16} />
@@ -817,7 +841,7 @@ export default function App() {
                 role="region"
                 aria-label="PDF page canvas"
               >
-                <div className="page-paper" style={{ width: pageWidth, height: pageHeight }}>
+                <div className="page-paper" data-preview-revision={preview?.model.revision||''} style={{ width: pageWidth, height: pageHeight }}>
                   {image && (
                     <img
                       src={image}
@@ -829,6 +853,7 @@ export default function App() {
                   <div
                     className="text-layer"
                     aria-label={`Selectable text on page ${page + 1}`}
+                    style={{pointerEvents:preview?'none':undefined}}
                     onMouseDown={(e) => {
                       const node = (e.target as HTMLElement).closest<HTMLElement>('[data-line-id]');
                       dragStart.current = node
@@ -849,9 +874,10 @@ export default function App() {
                         key={line.id}
                         className="text-line"
                         title="Select this line to edit"
-                        tabIndex={busy ? -1 : 0}
+                        tabIndex={busy || preview ? -1 : 0}
                         role="button"
                         aria-label={`Select text: ${line.text}`}
+                        aria-disabled={!!preview||!!busy}
                         style={{
                           left: (line.rect[0] - (bounds?.[0] || 0)) * scale,
                           top: (line.rect[1] - (bounds?.[1] || 0)) * scale,
@@ -860,7 +886,7 @@ export default function App() {
                           fontSize: (line.glyphs[0]?.size || 12) * scale,
                         }}
                         onClick={(e) => {
-                          if (busy) return;
+                          if (busy || preview) return;
                           if (draggedSelection.current) {
                             draggedSelection.current = false;
                             return;
@@ -875,7 +901,7 @@ export default function App() {
                           }
                         }}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !busy) {
+                          if (e.key === 'Enter' && !busy && !preview) {
                             setQuery(line.text);
                             const t = findTargets(model, line.text).find((t) => t.line === line.id);
                             if (t) choose(t);
@@ -919,6 +945,11 @@ export default function App() {
                       </span>
                     ))}
                   </div>
+                  {preview&&!compareOriginal&&preview.proposals.filter(p=>p.target.page===page).map((p,index)=>{
+                    const r=p.layoutRect||p.target.rect;
+                    return <div key={'preview'+index} className="preview-highlight" aria-label={'Changed region '+(index+1)}
+                      style={{left:(r[0]-(bounds?.[0]||0))*scale,top:(r[1]-(bounds?.[1]||0))*scale,width:(r[2]-r[0])*scale,height:(r[3]-r[1])*scale}}/>;
+                  })}
                   {[
                     ...queue.map((item) => item.target),
                     ...(draftTargets.length ? draftTargets : selected ? [selected] : []),
@@ -1023,15 +1054,6 @@ export default function App() {
           <div className="tabs" role="tablist" aria-label="Editing mode">
             <button
               role="tab"
-              aria-selected={tab === 'manual'}
-              className={tab === 'manual' ? 'active' : ''}
-              onClick={() => setTab('manual')}
-            >
-              <Search size={14} />
-              Find & replace
-            </button>
-            <button
-              role="tab"
               aria-selected={tab === 'ai'}
               className={tab === 'ai' ? 'active' : ''}
               onClick={() => setTab('ai')}
@@ -1039,6 +1061,16 @@ export default function App() {
               <Sparkles size={14} />
               AI assistant
             </button>
+            <button
+              role="tab"
+              aria-selected={tab === 'manual'}
+              className={tab === 'manual' ? 'active' : ''}
+              onClick={() => {if(preview)discardPreview();setTab('manual');}}
+            >
+              <Search size={14} />
+              Find & replace
+            </button>
+
           </div>
           <div className="panel-scroll" tabIndex={0} role="region" aria-label="Editing controls">
             {tab === 'manual' ? (
@@ -1289,12 +1321,12 @@ export default function App() {
                   <h2>A correction, in your words.</h2>
                 </div>
                 <p className="hint">
-                  Describe the intended fields or corrections. AI proposes; you review and approve.
+                  Describe your changes. Review the edited document, then approve and download.
                 </p>
                 <label htmlFor="instruction">What would you like to change?</label>
                 <textarea
                   id="instruction"
-                  placeholder={'e.g. Replace “Sales Manager” with “Team Lead”.'}
+                  placeholder={'e.g. Change the rate and charges to 1000 and update the total accordingly.'}
                   rows={5}
                   maxLength={1200}
                   value={instruction}
@@ -1343,45 +1375,30 @@ export default function App() {
                   onClick={askAI}
                 >
                   <Sparkles size={15} />
-                  Suggest changes
+                  Preview changes
                 </button>
                 {aiClarification && <p className="availability-callout" role="status">{aiClarification} Revise the instruction above; no changes have been queued.</p>}
-                {aiQuota && <p className="hint" role="status">{aiQuota}</p>}
-                {aiEdits.length>0 && <button className="secondary full" disabled={!!busy} onClick={()=>{
-                  if(!model)return;
-                  const targets=aiEdits.map(edit=>findTargets(model,edit.original).filter(t=>t.page===edit.page-1&&t.line===edit.blockId));
-                  if(targets.some((ts,i)=>ts.length!==1||aiEdits[i].ambiguity!=='none')){setError('Resolve the ambiguous fields before adding this plan.');return;}
-                  if(queue.some(existing=>targets.some(ts=>ts[0]?.id===existing.target.id))){setError('This plan conflicts with a field already in your change list. Clear or resolve it before adding the plan.');return;}
-                  enqueue(targets.map(ts=>ts[0]),aiEdits.map(e=>e.replacement),aiEdits.map(e=>e.explanation));setTab('manual');
-                }}>Add all proposals to changes</button>}
-                {aiEdits.map((edit) => (
-                  <div className="ai-proposal" key={edit.id}>
-                    <span className="micro-label">
-                      PAGE {edit.page} ·{' '}
-                      {edit.ambiguity === 'none' ? 'REVIEW REQUIRED' : 'CHOOSE OCCURRENCE'}
-                    </span>
-                    <del>{edit.original}</del>
-                    <ins>{edit.replacement || '(remove text)'}</ins>
-                    {edit.label && <p className="font-note">{edit.label} · {edit.fieldType}</p>}
-                    <p>{edit.explanation}</p>
-                    <div className="row-actions">
-                      <button
-                        className="secondary"
-                        disabled={!!busy}
-                        onClick={() => chooseAI(edit)}
-                      >
-                        Check & review
-                      </button>
-                      <button
-                        className="text-button"
-                        disabled={!!busy}
-                        onClick={() => setAiEdits((es) => es.filter((e) => e.id !== edit.id))}
-                      >
-                        Reject
-                      </button>
-                    </div>
+                {aiQuota && <details className="hint"><summary>AI usage and limits</summary><p>{aiQuota}</p></details>}
+                {aiInterpretation&&<p className="hint">{aiInterpretation}</p>}
+                {aiAlternatives.map(alternative=><button className="text-button" key={alternative.label} disabled={!!busy} onClick={()=>{discardPreview();setInstruction(alternative.instruction);}}>{alternative.label}</button>)}
+                {preview&&<section className="preview-review" aria-label="Edited document preview">
+                  <h2>Review your edited document</h2>
+                  <p className="hint">{preview.operations.length} changes prepared on a working copy. Your document stays unchanged until approval.</p>
+                  <div className="preview-compare">
+                    <button className={'secondary '+(!compareOriginal?'active':'')} aria-pressed={!compareOriginal} disabled={!!busy} onClick={()=>setCompareOriginal(false)}>Edited preview</button>
+                    <button className={'secondary '+(compareOriginal?'active':'')} aria-pressed={compareOriginal} disabled={!!busy} onClick={()=>setCompareOriginal(true)}>Original</button>
                   </div>
-                ))}
+                  <div className="row-actions">{[...new Set(preview.operations.map(op=>op.target.page))].map(p=><button className="text-button" key={p} disabled={!!busy} onClick={()=>setPage(p)}>Page {p+1}</button>)}</div>
+                  <details><summary>Review changes and calculations</summary>{aiEdits.map(edit=><div className="ai-proposal" key={edit.id}>
+                    <span className="micro-label">PAGE {edit.page} · {edit.label||'Text correction'}</span>
+                    <del>{edit.original}</del><ins>{edit.replacement||'(remove text)'}</ins><p>{edit.explanation}</p>
+                  </div>)}</details>
+                  {preview.proposals.some(p=>p.fitting==='typography'||p.fitting==='whitespace')&&<p className="hint">Some text uses adjacent empty space or a small type adjustment. Inspect the highlighted result before approving.</p>}
+                  <details className="hint"><summary>Advanced layout and integrity checks</summary>{preview.proposals.map(p=><p key={p.target.id}>{p.message}</p>)}<p>{preview.validation.checks.join('. ')}</p></details>
+                  <button className="primary full" disabled={!!busy||compareOriginal||rendering||renderedSnapshot!==preview.id+':'+page} onClick={approvePreview}><Check size={15}/>Apply &amp; Download</button>
+                  <button className="text-button" disabled={!!busy} onClick={discardPreview}>Discard preview</button>
+                </section>}
+
               </>
             )}
             {proposal && (

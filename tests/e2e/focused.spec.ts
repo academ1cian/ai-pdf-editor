@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 import {getDocument} from 'pdfjs-dist/legacy/build/pdf.mjs';
 test('focused dense invoice → related numeric batch → verified export and one undo',async({page},testInfo)=>{
   await page.goto('/');
+  await page.getByRole('tab',{name:'Find & replace',exact:true}).click();
   if(process.env.EXPECTED_COMMIT_SHA)await expect(page.locator('.app')).toHaveAttribute('data-build-commit',process.env.EXPECTED_COMMIT_SHA);
   const input=resolve('tests/fixtures/focused-invoice.pdf'),original=readFileSync(input);
   await page.getByLabel('Upload PDF').setInputFiles(input);

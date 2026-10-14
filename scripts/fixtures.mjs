@@ -303,3 +303,56 @@ console.log(`Generated ${manifest.length} distinct synthetic fixtures.`);
   const bytes=await doc.save();await writeFile('tests/fixtures/focused-invoice.pdf',bytes);
   await writeFile('public/focused-invoice.pdf',bytes);
 }
+
+// Recovery acceptance invoice: one freight row, one unchanged accessorial fee, cross-page total.
+{
+  const doc=await PDFDocument.create(),font=await doc.embedFont(StandardFonts.Helvetica),bold=await doc.embedFont(StandardFonts.HelveticaBold);
+  const pages=[doc.addPage([612,792]),doc.addPage([612,792]),doc.addPage([612,792])];
+  const text=(p,t,x,y,size=9.8,b=false)=>p.drawText(t,{x,y,size,font:b?bold:font});
+  const right=(p,t,x,y,size=9.8,b=false)=>text(p,t,x-(b?bold:font).widthOfTextAtSize(t,size),y,size,b);
+  pages.forEach((p,i)=>{
+    text(p,'PROJECT LOGISTICS',40,750,16,true);text(p,'SYNTHETIC TEST DOCUMENT',40,732,8);
+    text(p,'INVOICE',430,750,10,true);right(p,'0089033',565,750,9.8,true);
+    text(p,'INVOICE DATE',420,730,9);right(p,'10/13/2026',565,730,9);
+    text(p,'Page '+(i+1)+' of 3',500,35,8);
+  });
+  const p=pages[0];
+  p.drawRectangle({x:40,y:615,width:250,height:80,borderWidth:.5,borderColor:rgb(.2,.2,.2)});
+  p.drawRectangle({x:310,y:615,width:262,height:80,borderWidth:.5,borderColor:rgb(.2,.2,.2)});
+  text(p,'SHIPPER',50,680,9,true);text(p,'Project Mill - synthetic shipper',50,661);
+  text(p,'250 Industrial Street',50,645);text(p,'Buffalo, NY 14203',50,629);
+  text(p,'CONSIGNEE',320,680,9,true);text(p,'Project Distribution - synthetic consignee',320,661);
+  text(p,'300 State Route 281',320,645);text(p,'Tully, NY 13159',320,629);
+  text(p,'SHIP DATE',40,586,9,true);text(p,'10/09/2026',120,586);
+  text(p,'BILL OF LADING',310,586,9,true);text(p,'50003865578',420,586);
+  for(const x of [40,300,395,445,510,572])p.drawLine({start:{x,y:468},end:{x,y:541},thickness:.5});
+  for(const y of [468,492,516,541])p.drawLine({start:{x:40,y},end:{x:572,y},thickness:.5});
+  text(p,'DESCRIPTION',48,525,9,true);text(p,'WEIGHT',350,525,8,true);text(p,'UNITS',405,525,8,true);
+  text(p,'RATE',463,525,8,true);text(p,'CHARGES',519,525,8,true);
+  text(p,'All Purpose Flour - freight',48,500,9.8,true);
+  right(p,'42333.4',387,500);right(p,'1.0000',438,500);right(p,'1205.0000',500,500,9.8,true);right(p,'1205.00',565,500,9.8,true);
+  text(p,'UNL - unloading fee',48,477);
+  right(p,'1.0000',438,477);right(p,'90.0000',500,477);right(p,'90.00',565,477);
+  text(p,'Flat-rate transport. Weight is informational; one unit is billed.',40,445,9);
+  text(p,'Remittance instructions and the verified total continue on page 3.',40,420,9);
+  const route=pages[1];
+  text(route,'TRANSPORT DETAILS',40,675,12,true);
+  [
+    'Commodity: packaged flour. Keep product descriptions unchanged.',
+    'Origin: Project Mill, Buffalo. Destination: Project Distribution, Tully.',
+    'Service: flat-rate transport; weight is not a billing multiplier.',
+    'Accessorial: UNL means unloading fee and is charged separately.',
+    'Delivery appointment: dispatch confirms the receiving window.',
+    'Carrier reference: ARCHIVE-42. Preserve this reference.',
+    'No additional tax, discount, or fuel surcharge applies to this invoice.',
+  ].forEach((t,i)=>text(route,t,40,645-i*25,10));
+  const payment=pages[2];
+  text(payment,'INVOICE SUMMARY',40,675,12,true);
+  text(payment,'Freight and the separate unloading charge from page 1 are included.',40,647,10);
+  payment.drawRectangle({x:410,y:570,width:162,height:44,borderWidth:.5,borderColor:rgb(.2,.2,.2)});
+  text(payment,'TOTAL',420,588,10,true);right(payment,'1295.00',565,588,9.8,true);
+  text(payment,'PAYMENT TERMS',40,540,10,true);text(payment,'Net 30 days. Reference invoice 0089033 with payment.',40,518,10);
+  text(payment,'Payment instructions are synthetic and contain no bank account.',40,490,10);
+  text(payment,'Document control: retain shipment references and all addresses.',40,450,10);
+  const bytes=await doc.save();await writeFile('tests/fixtures/recovery-logistics.pdf',bytes);await writeFile('public/logistics-demo.pdf',bytes);
+}

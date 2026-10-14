@@ -1,5 +1,5 @@
 import { AIRequestSchema, AIPlanSchema, planJSONSchema } from '../src/ai/schema';
-import { validateAnalysis } from '../src/ai/analysis';
+import { validateAnalysis, clarifyIntent } from '../src/ai/analysis';
 export interface AIEnv {
   GROQ_API_KEY?: string;
   GROQ_MODEL?: string;
@@ -134,6 +134,8 @@ export async function handleAPI(
       result.action !== 'pdf-plan'
     )
       return error('Please complete the verification again.', 403, allowed);
+    const clarification=clarifyIntent(payload.blocks,payload.instruction);
+    if(clarification)return json({edits:[],clarification},200,allowed);
     const messages = [
       { role: 'system', content: SYSTEM },
       {
@@ -172,7 +174,7 @@ export async function handleAPI(
         body: JSON.stringify({ client, network, id: reservationId, tokens: reservedTokens }),
       }),
     );
-    const quota = await reservation.json().catch(()=>({})) as {reason?:string;retryAfter?:number;remaining?:number};
+    const quota = await reservation.json().catch(()=>({})) as {reason?:string;retryAfter?:number;remaining?:number;requests?:number;tokens?:number};
     if (!reservation.ok) {
       const messages:Record<string,string>={
         global_daily:'The application’s shared daily AI allowance is reached. It resets at midnight UTC.',
@@ -186,6 +188,9 @@ export async function handleAPI(
     const settle=async(actual?:number,rejected=false)=>{
       const r=await budget.fetch(new Request('https://budget/reconcile',{method:'POST',body:JSON.stringify({client,network,id:reservationId,actual,rejected})}));
       if(!r.ok)throw new Error('Budget reconciliation unavailable.');
+      const accounted=await r.json().catch(()=>({})) as {requests?:number;tokens?:number};
+      if(accounted.requests!==undefined)quota.requests=accounted.requests;
+      if(accounted.tokens!==undefined)quota.tokens=accounted.tokens;
     };
     const provider = await fetcher('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -237,6 +242,8 @@ export async function handleAPI(
     const analysed=validateAnalysis(plan.data,payload.blocks,payload.instruction);
     const response=json(analysed, 200, allowed);
     response.headers.set('X-AI-Remaining-Requests',String(quota.remaining ?? 'unknown'));
+    if(quota.requests!==undefined)response.headers.set('X-AI-Global-Requests-Used',String(quota.requests));
+    if(quota.tokens!==undefined)response.headers.set('X-AI-Global-Tokens-Used',String(quota.tokens));
     response.headers.set('X-AI-Accounting','Actual provider usage reconciled; uncertain network failures retain their reservation.');
     return response;
   } catch {

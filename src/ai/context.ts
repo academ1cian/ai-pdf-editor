@@ -20,7 +20,7 @@ export function buildContext(model: DocumentModel, instruction: string, currentP
           (b.left ? line.rect[0]-b.l.rect[2] : line.rect[1]-b.l.rect[3]+25));
       label=candidates[0]?.l.text.trim() || '';
     }
-    const type: FieldType = !numeric ? 'text' : /subtotal/i.test(label) ? 'subtotal' : /total|balance/i.test(label) ? 'total' :
+    const type: FieldType = !numeric ? 'text' : /subtotal/i.test(label) ? 'subtotal' : /total|balance|amount\s+due/i.test(label) ? 'total' :
       /rate|unit\s*(?:price|cost)/i.test(label) ? 'rate' : /qty|quantity|units/i.test(label) ? 'quantity' :
       /charge|amount/i.test(label) ? 'charge' : 'number';
     return {id:line.id,page:p.index+1,text:line.text.slice(0,1500),rect:line.rect,order,

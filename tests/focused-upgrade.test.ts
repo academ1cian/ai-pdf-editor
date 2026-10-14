@@ -56,7 +56,7 @@ describe('focused usability and intelligence regressions',()=>{
     const plan:AIPlan={edits:[{id:'charge',operation:'replace',blockId:charges[0].id,page:1,original:charges[0].text,replacement:'1000.00',explanation:'First charge.',ambiguity:'none'},
       {id:'total',operation:'replace',blockId:total.id,page:1,original:total.text,replacement:'999999',explanation:'Total.',ambiguity:'none',
         calculation:{operation:'sum',sources:charges.map(b=>({blockId:b.id,page:b.page,original:b.text}))}}]};
-    const result=validateAnalysis(plan,blocks,'Change first charges to 1000 and total accordingly');
+    const result=validateAnalysis(plan,blocks,'On page 1, change first charges to 1000 and total accordingly');
     expect(result.edits[1].replacement).toBe('1090.00');expect(result.edits[1].explanation).toContain('1000.00 + 90.00 = 1090.00');
     expect(decimal('0.1')+decimal('0.2')).toBe(decimal('0.30'));
   });

@@ -11,7 +11,21 @@ function money(value: bigint, original: string) {
   const negative=value<0n; const cents=((negative?-value:value)+5000n)/10000n;
   return (original.match(/^[$£€]/)?.[0]||'')+(negative?'-':'')+(cents/100n).toString()+'.'+(cents%100n).toString().padStart(2,'0');
 }
+export function clarifyIntent(blocks:ContextBlock[],instruction:string):string|undefined {
+  const financial=/\b(rate|charges?|amount)\b/i.test(instruction) && !/\b(rename|heading|label|word)\b/i.test(instruction);
+  if(!financial || /\b(first|second|third|last|all|both|row|item|line)\b/i.test(instruction))return;
+  const wanted=blocks.filter(b=>(b.field?.type==='rate'&&/rate/i.test(instruction)) ||
+    (b.field?.type==='charge'&&/charges?|amount/i.test(instruction)));
+  const rates=wanted.filter(b=>b.field?.type==='rate').length,charges=wanted.filter(b=>b.field?.type==='charge').length;
+  if(rates>1 || charges>1){
+    const amounts=(instruction.match(/-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?/g)||[]).map(decimal);
+    const explicitlyNamed=wanted.filter(b=>{try{return amounts.includes(decimal(b.text));}catch{return false;}});
+    if(explicitlyNamed.length===0)return 'This context contains '+rates+' rate values and '+charges+' charge values. Which row(s) should be set to the requested amount, and should the other rows stay unchanged?';
+  }
+}
 export function validateAnalysis(plan: AIPlan, blocks: ContextBlock[], instruction: string): AIPlan {
+  const earlyQuestion=clarifyIntent(blocks,instruction);
+  if(earlyQuestion)return {edits:[],clarification:earlyQuestion};
   const financial=/\b(rate|charges?|amount|total|subtotal|quantity)\b/i.test(instruction) && !/\b(rename|heading|label|word)\b/i.test(instruction);
   const clarify=(message:string):AIPlan=>({edits:[],clarification:message});
   if(plan.clarification?.trim()) return clarify(plan.clarification);
@@ -23,8 +37,14 @@ export function validateAnalysis(plan: AIPlan, blocks: ContextBlock[], instructi
     if(!b || !b.text.includes(e.original) || b.text.indexOf(e.original)!==b.text.lastIndexOf(e.original))
       return clarify('The target is not unique in the supplied context. Specify its row or page.');
     if(financial && !e.calculation) {
+      const kind=b.field?.type;
+      if(!kind || ['text','number'].includes(kind) ||
+        (kind==='quantity'&&!/qty|quantity|units/i.test(instruction)) ||
+        (kind==='rate'&&!/rate|unit\s*(price|cost)/i.test(instruction)) ||
+        (kind==='charge'&&!/charges?|amount/i.test(instruction)))
+        return clarify('Which labeled numeric field should change? The proposed value is not reliably associated with the requested label.');
       try {
-        const requested=(instruction.match(/-?\d[\d,]*(?:\.\d+)?/g)||[]).map(decimal);
+        const requested=(instruction.match(/-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?/g)||[]).map(decimal);
         if(!requested.includes(decimal(e.replacement)))return clarify('Confirm the replacement amount for '+(e.label||e.original)+'. It was not specified in your instruction.');
       } catch { return clarify('Use an explicit numeric replacement and identify the row.'); }
     }

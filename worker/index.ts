@@ -10,12 +10,15 @@ export class AIBudget extends DurableObject {
     const decision=await this.ctx.storage.transaction(async tx=>{
       const current=await tx.get<Usage>('usage');
       if(path==='/reconcile'){
-        if(current?.day===new Date().toISOString().slice(0,10))await tx.put('usage',reconcile(current,body.id,body.actual,body.rejected));
+        if(current?.day===new Date().toISOString().slice(0,10)){
+          const updated=reconcile(current,body.id,body.actual,body.rejected);await tx.put('usage',updated);
+          return {allowed:true,requests:updated.requests,tokens:updated.tokens};
+        }
         return {allowed:true};
       }
       const result=reserve(current,body.client,body.tokens,Date.now(),undefined,body.network,body.id);
       if(result.allowed)await tx.put('usage',result.usage);
-      return {allowed:result.allowed,reason:result.reason,retryAfter:result.retryAfter,remaining:result.remaining};
+      return {allowed:result.allowed,reason:result.reason,retryAfter:result.retryAfter,remaining:result.remaining,requests:result.usage.requests,tokens:result.usage.tokens};
     });
     return Response.json(decision,{status:decision.allowed?200:429});
 

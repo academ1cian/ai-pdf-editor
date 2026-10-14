@@ -47,3 +47,5 @@ for(const model of ['openai/gpt-oss-20b','openai/gpt-oss-120b']){
 mkdirSync('tests/evidence',{recursive:true});
 writeFileSync('tests/evidence/model-benchmark.json',JSON.stringify({commit:process.env.GITHUB_SHA,results},null,2));
 console.log(JSON.stringify(results));
+
+// Keep raw synthetic proposals above to distinguish provider mistakes from local validator failures.

@@ -44,7 +44,7 @@ import { buildContext } from './ai/context';
 
 type Config = { enabled: boolean; siteKey?: string; reason?: string };
 type Change = { original: string; replacement: string; page: number; transaction: number };
-type QueuedChange = Operation & { included: boolean };
+type QueuedChange = Operation & { included: boolean; note?: string };
 declare global {
   interface Window {
     turnstile?: {
@@ -428,12 +428,13 @@ export default function App() {
     await review(targets[0], edit.replacement);
   };
 
-  const enqueue = (targets: Target[], replacements?: string[]) => {
+  const enqueue = (targets: Target[], replacements?: string[], notes?: string[]) => {
     if (busy || !targets.length) return;
     const additions = targets
       .map((target, index) => ({
         target,
         replacement: replacements?.[index] ?? target.original,
+        note: notes?.[index],
         included: true,
       }))
       .filter((item) => !queue.some((current) => current.target.id === item.target.id));
@@ -455,7 +456,7 @@ export default function App() {
     patch: Partial<Pick<QueuedChange, 'replacement' | 'included'>>,
   ) => {
     setQueue((current) =>
-      current.map((item) => (item.target.id === id ? { ...item, ...patch } : item)),
+      current.map((item) => (item.target.id === id ? { ...item, ...patch, note: patch.replacement!==undefined ? 'Replacement was manually adjusted; review any dependent calculation again.' : item.note } : item)),
     );
     setBatchReview(undefined);
   };
@@ -1200,6 +1201,7 @@ export default function App() {
                             </button>
                           </div>
                           <div className="batch-original">{item.target.original}</div>
+                          {item.note && <p className="hint">AI rationale: {item.note}</p>}
                           <label htmlFor={`batch-replacement-${index}`}>
                             Replacement {index + 1}
                           </label>
@@ -1347,7 +1349,8 @@ export default function App() {
                   if(!model)return;
                   const targets=aiEdits.map(edit=>findTargets(model,edit.original).filter(t=>t.page===edit.page-1&&t.line===edit.blockId));
                   if(targets.some((ts,i)=>ts.length!==1||aiEdits[i].ambiguity!=='none')){setError('Resolve the ambiguous fields before adding this plan.');return;}
-                  enqueue(targets.map(ts=>ts[0]),aiEdits.map(e=>e.replacement));setTab('manual');
+                  if(queue.some(existing=>targets.some(ts=>ts[0]?.id===existing.target.id))){setError('This plan conflicts with a field already in your change list. Clear or resolve it before adding the plan.');return;}
+                  enqueue(targets.map(ts=>ts[0]),aiEdits.map(e=>e.replacement),aiEdits.map(e=>e.explanation));setTab('manual');
                 }}>Add all proposals to changes</button>}
                 {aiEdits.map((edit) => (
                   <div className="ai-proposal" key={edit.id}>
@@ -1400,7 +1403,7 @@ export default function App() {
                   <span>
                     <ArrowDownToLine size={14} />
                   </span>
-                  <ins>{proposal.replacement || '(remove text)'}</ins>
+                  <ins style={{fontFamily:proposal.font?.startsWith('Times')?'Times New Roman, serif':proposal.font?.startsWith('Courier')?'Courier New, monospace':'Arial, sans-serif',fontSize:proposal.size?proposal.size+'pt':undefined,fontWeight:proposal.font?.includes('Bold')?700:400,fontStyle:/Italic|Oblique/.test(proposal.font||'')?'italic':'normal'}}>{proposal.replacement || '(remove text)'}</ins>
                 </div>
                 {proposal.font && (
                   <p className="font-note">

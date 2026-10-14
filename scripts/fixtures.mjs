@@ -68,6 +68,22 @@ for(const [id,text,target,replacement,subset] of [
 }
 await writeFile('tests/fixtures/manifest.json',JSON.stringify(manifest,null,2)+'\n');
 await mkdir('public',{recursive:true});
-await copyFile('tests/fixtures/14-resume.pdf','public/sample.pdf');
+const sample=await PDFDocument.create();const bodyFont=await sample.embedFont(StandardFonts.Helvetica);const bold=await sample.embedFont(StandardFonts.HelveticaBold);const samplePage=sample.addPage([612,792]);
+const ink=rgb(.15,.21,.19),muted=rgb(.36,.43,.39),accent=rgb(.16,.36,.29);
+const textAt=(text,x,y,size=10,font=bodyFont,color=ink)=>samplePage.drawText(text,{x,y,size,font,color});
+samplePage.drawRectangle({x:0,y:782,width:612,height:10,color:accent});
+textAt('Jordan Example',52,714,28,bold);textAt('PRODUCT DESIGNER',53,688,9,bold,accent);
+textAt('jordan@example.org  /  portfolio.example.org  /  Chicago, IL',53,664,9,bodyFont,muted);
+samplePage.drawLine({start:{x:52,y:645},end:{x:560,y:645},thickness:.6,color:rgb(.83,.87,.82)});
+textAt('PROFILE',52,614,9,bold,accent);textAt('A thoughtful designer turning complex workflows into clear, useful tools.',52,591,11);textAt('Six years of experience in document software and accessible interfaces.',52,573,11);
+textAt('EXPERIENCE',52,530,9,bold,accent);textAt('Senior Product Designer',52,502,14,bold);textAt('Example Studio',52,483,10,bodyFont,muted);textAt('2022 - Present',448,502,9,bodyFont,muted);
+for(const [y,t] of [[456,'Led the design of a document workspace used by distributed teams.'],[437,'Improved task completion through research, prototypes, and careful iteration.'],[418,'Partnered with engineering to ship a consistent, accessible design system.']])textAt(t,52,y,10);
+textAt('Product Designer',52,374,14,bold);textAt('Sample Company',52,355,10,bodyFont,muted);textAt('2020 - 2022',458,374,9,bodyFont,muted);
+textAt('Designed focused tools for reviewing, approving, and sharing information.',52,328,10);textAt('Translated customer feedback into practical improvements to daily work.',52,309,10);
+samplePage.drawLine({start:{x:52,y:278},end:{x:560,y:278},thickness:.6,color:rgb(.83,.87,.82)});
+textAt('EDUCATION',52,249,9,bold,accent);textAt('Bachelor of Design',52,226,11,bold);textAt('Example University / 2020',52,207,9,bodyFont,muted);
+textAt('SKILLS',345,249,9,bold,accent);textAt('Interaction design / User research',345,226,10);textAt('Prototyping / Design systems',345,207,10);textAt('Accessibility / Product strategy',345,188,10);
+samplePage.drawRectangle({x:52,y:72,width:508,height:48,color:rgb(.95,.97,.94)});textAt('A synthetic document, made for trying careful edits.',65,94,9,bodyFont,muted);textAt('No real personal or employment information.',65,81,8,bodyFont,muted);
+await writeFile('public/sample.pdf',await sample.save());
 await copyFile('node_modules/pdfjs-dist/standard_fonts/LICENSE_LIBERATION','tests/fixtures/LICENSE-Liberation.txt');
 console.log(`Generated ${manifest.length} distinct synthetic fixtures.`);

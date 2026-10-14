@@ -1,0 +1,9 @@
+pnpm-lock.yaml
+tests/evidence/
+tests/fixtures/
+docs/dependency-licenses.json
+node_modules/
+dist/
+playwright-report/
+test-results/
+tmp/

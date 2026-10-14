@@ -87,7 +87,7 @@ Use [GitHub repository secrets](https://github.com/academ1cian/ai-pdf-editor/set
 | `CLOUDFLARE_ACCOUNT_ID` | Chosen Cloudflare account |
 | `TURNSTILE_SECRET` | Server verification secret for the real widget |
 
-Public repository variables: `TURNSTILE_SITE_KEY`, `CF_FREE_PLAN_CONFIRMED=true` after verifying both providers are Free, and `DEPLOY_ENABLED=true` when ready. Default Pages project name: `academ1cian-ai-pdf-editor`; `CF_PAGES_PROJECT` can override it. The anticipated hostname is configuration, **not a claimed live URL**.
+Public repository variables: `TURNSTILE_SITE_KEY`, `CF_FREE_PLAN_CONFIRMED=true` after verifying both providers are Free, and `DEPLOY_ENABLED=true` when ready. Requested Pages project name: `ai-pdf-editor`, anticipated hostname `ai-pdf-editor.pages.dev`; `CF_PAGES_PROJECT` can override it. Authenticated project creation verifies the returned hostname and stops on a collision. This is configuration, **not a claimed live URL**.
 
 Read [deployment instructions and minimum authorization](docs/DEPLOYMENT.md). Deployment sends secret values directly over TLS to Cloudflare's Worker Secret API; no secret-valued shell arguments, temporary files, uploaded artifacts or log output. It checks the account's subscriptions read-only and refuses paid/unrecognized account plans. No billing/subscription writes are implemented. Forked PRs cannot deploy. Production smoke testing runs in a separate job without deployment/provider credentials.
 

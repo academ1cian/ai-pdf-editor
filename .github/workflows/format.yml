@@ -1,0 +1,35 @@
+name: Format source remotely
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  format:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format
+      - run: pnpm fixtures
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm poc
+      - run: pnpm build
+      - name: Commit only formatting changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src worker functions scripts tests/*.ts tests/*.mjs tests/e2e *.ts *.json *.mjs .github/workflows
+          if ! git diff --cached --quiet; then
+            git commit -m "style: format implementation and workflows on hosted runner"
+            git push origin HEAD:main
+          fi

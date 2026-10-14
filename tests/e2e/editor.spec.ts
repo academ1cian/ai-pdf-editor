@@ -2,6 +2,7 @@ import {test,expect} from '@playwright/test';
 import {readFileSync} from 'node:fs';
 import {getDocument} from 'pdfjs-dist/legacy/build/pdf.mjs';
 import {resolve} from 'node:path';
+import AxeBuilder from '@axe-core/playwright';
 test('real upload → review → apply → download → independent reopen → undo/reset',async({page},testInfo)=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  const sourcePath=resolve('tests/fixtures/01-paragraph.pdf');const before=readFileSync(sourcePath);
@@ -28,4 +29,11 @@ test('empty state, invalid file, no fake AI, and responsive layout',async({page}
 });
 test('duplicates require selection; overflow and scanned PDFs fail safely',async({page})=>{
  await page.goto('/');await page.getByLabel('Upload PDF').setInputFiles(resolve('tests/fixtures/12-duplicates.pdf'));await expect(page.getByRole('img')).toBeVisible();await page.getByLabel('Find in document').fill('John Smith');await expect(page.getByRole('button',{name:'Review replacement'})).toBeDisabled();await expect(page.getByText('2 MATCHES · CHOOSE ONE')).toBeVisible();await page.getByRole('button',{name:/John Smith.*Occurrence 2/}).click();await page.getByLabel('Replace with').fill('This replacement is much too long to fit');await page.getByRole('button',{name:'Review replacement'}).click();await expect(page.getByText(/only .* pt is available/)).toBeVisible();await expect(page.getByRole('button',{name:'Apply change'})).toBeDisabled();await page.getByLabel('Upload PDF').setInputFiles(resolve('tests/fixtures/23-scanned.pdf'));await expect(page.getByText(/No selectable text found/)).toBeVisible();
+});
+test('sample workflow and accessible editor controls',async({page})=>{
+ await page.goto('/');const emptyAudit=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa']).analyze();expect(emptyAudit.violations).toEqual([]);
+ await page.getByRole('button',{name:'Just looking? Try a sample document'}).click();await expect(page.getByRole('img',{name:'PDF page 1'})).toBeVisible();
+ await page.getByRole('button',{name:'Select text: Jordan Example',exact:true}).click();await page.getByLabel('Replace with').fill('Robin Sample');await page.getByRole('button',{name:'Review replacement'}).click();await expect(page.getByRole('heading',{name:'Ready for your review'})).toBeVisible();await page.screenshot({path:'docs/screenshots/review.png',fullPage:true});await page.getByRole('button',{name:'Apply change'}).click();await expect(page.getByText('Export validated',{exact:true})).toBeVisible();await page.screenshot({path:'docs/screenshots/editor.png',fullPage:true});
+ const audit=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa']).analyze();expect(audit.violations).toEqual([]);
+ await page.getByRole('button',{name:'Privacy & limits'}).click();await expect(page.getByRole('dialog')).toBeVisible();await page.keyboard.press('Escape');await expect(page.getByRole('dialog')).not.toBeVisible();
 });

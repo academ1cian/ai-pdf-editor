@@ -8,7 +8,7 @@ export function assertFreeSubscriptions(subscriptions) {
  for(const sub of subscriptions){const plan=sub.rate_plan;if(typeof sub.price!=='number'||sub.price!==0||!plan||plan.externally_managed||plan.is_contract||/paid|enterprise|business|pro\b|basic|standard/i.test(`${plan.id||''} ${plan.public_name||''}`)&&!/free/i.test(`${plan.id||''} ${plan.public_name||''}`))throw new Error('A paid or unrecognized account subscription was found. Only a verified free account is allowed. No billing changes were made.');}
 }
 export function settings(env) {
- const account=env.CLOUDFLARE_ACCOUNT_ID;const project=env.CF_PAGES_PROJECT||'academ1cian-ai-pdf-editor';
+ const account=env.CLOUDFLARE_ACCOUNT_ID;const project=env.CF_PAGES_PROJECT||'ai-pdf-editor';
  if(!/^[a-f0-9]{32}$/i.test(account||''))throw new Error('CLOUDFLARE_ACCOUNT_ID must be configured.');
  if(!/^[a-z0-9][a-z0-9-]{1,56}[a-z0-9]$/.test(project))throw new Error('Invalid Pages project name.');
  if(!env.CLOUDFLARE_API_TOKEN)throw new Error('CLOUDFLARE_API_TOKEN is missing.');
@@ -46,8 +46,10 @@ async function main(){
   await verifyFree(env);
   if(!env.TURNSTILE_SITE_KEY||env.TURNSTILE_SITE_KEY.startsWith('1x')||env.TURNSTILE_SITE_KEY.startsWith('2x'))throw new Error('Configure a real public TURNSTILE_SITE_KEY; test keys are not allowed in production.');
   const existing=await cfRequest(env,`/pages/projects/${project}`,{allow404:true});
-  if(!existing)await cfRequest(env,'/pages/projects',{method:'POST',body:{name:project,production_branch:'main'}});
+  let projectResult=existing;
+  if(!existing)projectResult=await cfRequest(env,'/pages/projects',{method:'POST',body:{name:project,production_branch:'main'}});
   else if(existing.result.name!==project||existing.result.production_branch!=='main')throw new Error('Existing Pages project configuration differs. Stopped before changing it.');
+  if(projectResult.result.subdomain!==`${project}.pages.dev`)throw new Error(`Cloudflare assigned a different public hostname: ${projectResult.result.subdomain}. Update the planned hostname and Turnstile before proceeding. No AI was enabled.`);
   await mkdir('.deployment',{recursive:true});
   const config=JSON.parse((await readFile('wrangler.jsonc','utf8')).replace(/^\s*\/\/.*$/gm,''));
   config.vars={...config.vars,ENABLE_AI:'true',ALLOWED_ORIGIN:origin,TURNSTILE_SITE_KEY:env.TURNSTILE_SITE_KEY};

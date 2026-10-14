@@ -152,7 +152,7 @@ export async function handleAPI(
     };
     // A practical estimate is reconciled with provider usage. The fallback upper bound stays reserved on uncertain failures.
     const byteCount = new TextEncoder().encode(JSON.stringify({ messages, response_format: responseFormat })).length;
-    const estimatedTokens = Math.ceil(byteCount / 2) + 1500;
+    const estimatedTokens = Math.ceil(byteCount / 3) + 1500;
     const reservedTokens = byteCount + 1500;
     if (estimatedTokens > 7500) return error('Select a smaller document region or shorten the instruction. Context exceeds the free model’s per-minute allowance.', 413, allowed);
     // Hash identifiers before storage. No document text or raw IP is stored.

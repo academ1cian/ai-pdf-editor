@@ -86,3 +86,21 @@ test('Groq disclosure consent is scoped to the uploaded document', async ({ page
     .fill('Change the rate and charge to 3300 and calculate the final amount automatically.');
   await expect(page.getByText(/This invoice request is interpreted on your device/)).toBeVisible();
 });
+
+test('built-in invented invoice example opens and prepares a real three-edit preview', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try an invoice example', exact: true }).click();
+  await expect(page.getByRole('img', { name: 'PDF page 1', exact: true })).toBeVisible();
+  await page
+    .getByLabel('What would you like to change?', { exact: true })
+    .fill('Поменяй мне rate и charge на тысячу, а final amount посчитай сам.');
+  await page.getByRole('button', { name: 'Preview changes', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Apply & Download', exact: true })).toBeEnabled({
+    timeout: 30000,
+  });
+  await expect(
+    page.getByRole('button', { name: 'Select text: $1,065.00', exact: true }),
+  ).toBeVisible();
+});

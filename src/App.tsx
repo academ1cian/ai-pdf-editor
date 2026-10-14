@@ -256,6 +256,15 @@ export default function App() {
       if (fileInput.current) fileInput.current.value = '';
     }
   };
+  const loadSample = async (path: string, filename: string) => {
+    try {
+      const response = await fetch(path);
+      if (!response.ok) throw new Error('Sample could not be loaded.');
+      await load(new File([await response.blob()], filename, { type: 'application/pdf' }));
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Sample could not be loaded.');
+    }
+  };
   useEffect(() => {
     if (!model) return;
     let cancelled = false;
@@ -806,21 +815,13 @@ export default function App() {
                 <button
                   className="sample-link"
                   disabled={!!busy}
-                  onClick={async () => {
-                    try {
-                      const r = await fetch('/sample.pdf');
-                      if (!r.ok) throw new Error('Sample could not be loaded.');
-                      void load(
-                        new File([await r.blob()], 'sample-resume.pdf', {
-                          type: 'application/pdf',
-                        }),
-                      );
-                    } catch (e) {
-                      setError((e as Error).message);
-                    }
-                  }}
+                  onClick={() => void loadSample('/sample.pdf', 'sample-resume.pdf')}
                 >
                   Just looking? Try a sample document <ArrowRight size={14} />
+                </button>
+                <button className="sample-link" disabled={!!busy}
+                  onClick={() => void loadSample('/invoice-demo.pdf', 'sample-invoice.pdf')}>
+                  Try an invoice example <ArrowRight size={14} />
                 </button>
                 <div className="trust-note">
                   <ShieldCheck size={15} />

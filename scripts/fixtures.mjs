@@ -357,3 +357,5 @@ console.log(`Generated ${manifest.length} distinct synthetic fixtures.`);
   const bytes=await doc.save();await writeFile('tests/fixtures/recovery-logistics.pdf',bytes);await writeFile('public/logistics-demo.pdf',bytes);
 }
 await import('./dense-fixtures.mjs');
+
+await copyFile('tests/fixtures/dense-invoice-a.pdf', 'public/invoice-demo.pdf');

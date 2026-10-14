@@ -32,7 +32,7 @@ test('focused dense invoice → related numeric batch → verified export and on
   await task.destroy();
   expect(readFileSync(input)).toEqual(original);
   await page.screenshot({path:'docs/screenshots/focused-invoice-applied.png',fullPage:true});
-  await page.getByRole('button',{name:'Undo last change',exact:true}).click();
+  await page.getByRole('button',{name:'Undo last edit',exact:true}).click();
   await expect(page.getByRole('button',{name:'Download PDF',exact:true})).toBeDisabled();
   await page.getByLabel('Find in document').fill('1205.00');
   await expect(page.getByText('2 MATCHES · CHOOSE ONE')).toBeVisible();

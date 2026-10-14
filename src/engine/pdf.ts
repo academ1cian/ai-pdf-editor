@@ -256,7 +256,7 @@ function fitRegion(page: mupdf.PDFPage, model: PageModel, glyphs: Glyph[], targe
     path.walk({
       moveTo: (a,b) => { x=sx=a; y=sy=b; },
       lineTo: segment,
-      curveTo: (a,b,c,d,e,f) => { segment(a,b); segment(c,d); segment(e,f); },
+      curveTo: (a,b,c,d,e,f) => { const pts=[point(x,y),point(a,b),point(c,d),point(e,f)]; obstacles.push([Math.min(...pts.map(p=>p[0]))-.5,Math.min(...pts.map(p=>p[1]))-.5,Math.max(...pts.map(p=>p[0]))+.5,Math.max(...pts.map(p=>p[1]))+.5]); x=e;y=f; },
       closePath: () => segment(sx,sy),
     });
   };
@@ -270,7 +270,7 @@ function fitRegion(page: mupdf.PDFPage, model: PageModel, glyphs: Glyph[], targe
     },
   });
   try { page.runPageContents(dev, mupdf.Matrix.identity); } finally { dev.close(); dev.destroy(); }
-  const numeric = /^[$€£]?-?\d[\d,]*(?:\.\d+)?%?$/.test(target.original.trim());
+  const numeric = /^[$€£]?-?\d[\d,]*(?:\.\d+)?%?$/.test(target.original.trim()) && model.lines.find(l=>l.id===target.line)?.text.trim()===target.original.trim();
   const rightEvidence = numeric && model.lines.some(l => !l.glyphs.some(g => glyphs.includes(g)) &&
     ((/^(?:-?\d[\d,]*\.?\d*)$/.test(l.text.trim()) && Math.abs(l.rect[2]-target.rect[2])<1 && Math.abs(l.rect[1]-target.rect[1])<100) ||
     (/^(rate|charges?|amount|total|balance)$/i.test(l.text.trim()) && l.rect[3]<=target.rect[1] && target.rect[1]-l.rect[3]<100 && Math.abs((l.rect[0]+l.rect[2])/2-(target.rect[0]+target.rect[2])/2)<35)));

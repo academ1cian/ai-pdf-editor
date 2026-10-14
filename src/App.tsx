@@ -395,7 +395,7 @@ export default function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ instruction, blocks: context, turnstileToken: token, sessionId: aiSession.current }),
-        signal: AbortSignal.timeout(30000),
+        signal: AbortSignal.timeout(35000),
       });
       const body = await response.json();
       if (!response.ok)
@@ -1331,7 +1331,7 @@ export default function App() {
                   maxLength={1200}
                   value={instruction}
                   disabled={!model || !!busy}
-                  onChange={(e) => setInstruction(e.target.value)}
+                  onChange={(e) => {if(preview)discardPreview();setInstruction(e.target.value);}}
                 />
                 <div className={config.enabled ? 'privacy-callout' : 'availability-callout'}>
                   {config.enabled ? (

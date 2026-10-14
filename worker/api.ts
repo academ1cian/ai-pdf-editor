@@ -152,8 +152,8 @@ export async function handleAPI(
     };
     // A practical estimate is reconciled with provider usage. The fallback upper bound stays reserved on uncertain failures.
     const byteCount = new TextEncoder().encode(JSON.stringify({ messages, response_format: responseFormat })).length;
-    const estimatedTokens = Math.ceil(byteCount / 3) + 1500;
-    const reservedTokens = byteCount + 1500;
+    const estimatedTokens = Math.ceil(byteCount / 3.5) + 2000;
+    const reservedTokens = byteCount + 2000;
     if (estimatedTokens > 7500) return error('Select a smaller document region or shorten the instruction. Context exceeds the free model’s per-minute allowance.', 413, allowed);
     // Hash identifiers before storage. No document text or raw IP is stored.
     const day = new Date().toISOString().slice(0, 10);
@@ -199,11 +199,11 @@ export async function handleAPI(
         model: env.GROQ_MODEL || 'openai/gpt-oss-120b',
         messages,
         response_format: responseFormat,
-        max_completion_tokens: 1200,
+        max_completion_tokens: 1600,
         reasoning_effort: 'low',
         temperature: 0.1,
       }),
-      signal: AbortSignal.timeout(18000),
+      signal: AbortSignal.timeout(25000),
     });
     if (!provider.ok) {
       // Confirmed provider rejection did not generate output; refund tokens/day counts, retain minute abuse attempts.

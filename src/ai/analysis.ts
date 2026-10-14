@@ -23,6 +23,8 @@ export function validateAnalysis(plan: AIPlan, blocks: ContextBlock[], instructi
   if(earlyQuestion)return {edits:[],clarification:earlyQuestion};
   const financial=/\b(rate|charges?|amount|total|subtotal|quantity)\b/i.test(instruction) && !/\b(rename|heading|label|word)\b/i.test(instruction);
   const clarify=(message:string):AIPlan=>({edits:[],clarification:message});
+  const invoices=[...new Set(blocks.filter(b=>b.field?.type==='invoice_id').map(b=>b.text))];
+  if(financial&&invoices.length>1&&!invoices.some(id=>instruction.includes(id)))return clarify('This context contains multiple invoice numbers. Which invoice should this instruction affect?');
   if(plan.clarification?.trim()) return clarify(plan.clarification);
 
   if(plan.edits.some(e=>e.ambiguity!=='none')) return clarify('Which occurrence or line item should these changes affect? Specify its row or page.');

@@ -57,7 +57,7 @@ export function buildContext(model:DocumentModel,instruction:string,currentPage:
     if(isNumber||isDate){
       const candidates=runs.filter(c=>c.page===b.page&&c!==b&&labelType(c.text)&&c.text.length<80)
         .map(c=>({c,left:Math.abs(c.rect![1]-rect[1])<5&&c.rect![2]<=rect[0]+.1,
-          above:c.rect![3]<=rect[1]+.1&&rect[1]-c.rect![3]<200&&Math.abs((c.rect![0]+c.rect![2]-rect[0]-rect[2])/2)<45}))
+          above:c.rect![3]<=rect[1]+.1&&rect[1]-c.rect![3]<200&&(!['date','invoice_id'].includes(labelType(c.text)||'')||rect[1]-c.rect![3]<35)&&Math.abs((c.rect![0]+c.rect![2]-rect[0]-rect[2])/2)<45}))
         .filter(c=>c.left||c.above).sort((a,z)=>
           (a.left?rect[0]-a.c.rect![2]-(['total','subtotal','date','invoice_id'].includes(labelType(a.c.text)||'')?1000:0):rect[1]-a.c.rect![3]+25-(['rate','charge','quantity','weight'].includes(labelType(a.c.text)||'')?100:0))-
           (z.left?rect[0]-z.c.rect![2]-(['total','subtotal','date','invoice_id'].includes(labelType(z.c.text)||'')?1000:0):rect[1]-z.c.rect![3]+25-(['rate','charge','quantity','weight'].includes(labelType(z.c.text)||'')?100:0)));
@@ -85,12 +85,12 @@ export function buildContext(model:DocumentModel,instruction:string,currentPage:
   const terms=instruction.toLowerCase().match(/[a-z]{3,}/g)||[];
   const financial=/rate|charge|amount|total|invoice|quantity|fee/i.test(instruction);
   const monetary=blocks.filter(b=>['rate','charge','fee','total','subtotal'].includes(b.field!.type));
-  const ranked=blocks.map(b=>({b,score:(b.page===currentPage+1?3:0)+terms.filter(t=>b.text.toLowerCase().includes(t)).length*4+
+  const ranked=blocks.map(b=>({b,score:(b.page===currentPage+1?3:0)+terms.filter(t=>(b.text+' '+b.field?.label).toLowerCase().includes(t)).length*4+(b.field?.type==='date'&&/date|October|November|December|January|February|March|April|May|June|July|August|September/i.test(instruction)?25:0)+
     (financial&&['rate','charge','fee','total','subtotal','quantity','weight'].includes(b.field!.type)?20:0)+
     (financial&&b.field!.description?5:0)})).sort((a,b)=>b.score-a.score);
   const chosen:ContextBlock[]=[];let used=0;
   for(const {b} of ranked){const cost=JSON.stringify(b).length;
-    if(chosen.length>=50||used+cost>11000)continue;chosen.push(b);used+=cost;}
+    if(chosen.length>=50||used+cost>9000)continue;chosen.push(b);used+=cost;}
   const complete=monetary.every(b=>chosen.includes(b)) && !blocks.some(b=>b.field!.type==='number'&&/^\$?\d[\d,]*\.\d{2}$/.test(b.text));
   return chosen.sort((a,b)=>a.page-b.page||a.rect![1]-b.rect![1]||a.rect![0]-b.rect![0]).map((b,order)=>({...b,order,complete}));
 }

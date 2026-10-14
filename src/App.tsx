@@ -389,6 +389,7 @@ export default function App() {
     setError('');
     try {
       const context = buildContext(model,instruction,page);
+      if(!context.length)throw new Error('This PDF has no selectable text. Scans need OCR before this editor can prepare changes.');
       setAiEdits([]);
       setAiClarification('');
       const response = await fetch('/api/plan', {

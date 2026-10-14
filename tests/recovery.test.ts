@@ -50,6 +50,12 @@ describe('recovery acceptance workflow',()=>{
     const s=scenario(),fee=s.blocks.find(b=>b.field?.type==='charge'&&b.field.role==='fee')!;
     const bad:AIPlan={edits:[{id:'fee',operation:'replace',page:fee.page,blockId:fee.id,original:fee.text,replacement:'1000',explanation:'Wrong.',ambiguity:'none'}]};
     expect(validateAnalysis(bad,s.blocks,instruction).edits).toEqual([]);
+    expect(validateAnalysis(structuredClone(bad),s.blocks,instruction+' Preserve the unloading fee.').edits).toEqual([]);
+    const datedInstruction='Change the invoice date to October 15, update the rate to 1000, and preserve the ship date.';
+    const dated=buildContext(s.model,datedInstruction,0),ship=dated.find(b=>b.field?.type==='date'&&/ship/i.test(b.field.label))!;
+    expect(ship).toBeDefined();
+    const wrongDate:AIPlan={edits:[{id:'ship',operation:'replace',page:ship.page,blockId:ship.id,original:ship.text,replacement:'10/15/2026',explanation:'Wrong date.',ambiguity:'none'}]};
+    expect(validateAnalysis(wrongDate,dated,datedInstruction).edits).toEqual([]);
     expect(()=>resolvePlan(s.model,{edits:[{...bad.edits[0],blockId:'missing'}]},s.blocks)).toThrow();
     const broken=structuredClone(s.plan);broken.edits[2].original='9999.00';
     expect(validateAnalysis(broken,s.blocks,instruction).edits).toEqual([]);

@@ -6,6 +6,14 @@ Careful corrections to existing PDF text, with an explicit review step and check
 
 ![Actual editor after a validated edit](docs/screenshots/editor.png)
 
+## AI-first editing
+
+Upload a supported PDF, describe coordinated changes, and review the actual edited PDF before approving. The worker validates a temporary copy without changing history; “Apply & Download” commits and downloads those same bytes as one Undo transaction. Compare original/edited views and inspect highlighted changes. Manual Find & Replace and batch selection remain available in the secondary tab.
+
+The recovery acceptance fixture is a three-page synthetic logistics invoice with weight, units, primary freight, a separate unloading fee, shipment information, and a total on another page. The one-sentence instruction is “Change the rate and charges to 1000 and update the total accordingly.” Financial source identities and original arithmetic are verified before calculating new totals. Complete relevant monetary context is required; ambiguous or unverified relationships are not silently guessed.
+
+Current model comparison: 120B passed the exact invoice and repeated-date multi-edit scenarios; 20B passed the invoice but missed two repeated dates. Runtime integrity checks remain independent of model output.
+
 ## What works
 
 - PDF upload/drop, multi-page navigation, zoom, fit-to-width, selectable text lines and exact find.

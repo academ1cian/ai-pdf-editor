@@ -62,6 +62,10 @@ test('AI-first → real edited preview → original comparison → one approval 
   await expect(page.getByRole('button',{name:'Download PDF',exact:true})).toBeDisabled();
   await page.getByRole('button',{name:'Preview changes',exact:true}).click();
   await expect(page.getByRole('button',{name:'Apply & Download',exact:true})).toBeEnabled({timeout:30000});
+  await page.getByLabel('What would you like to change?',{exact:true}).fill(instruction+' Keep the unloading fee unchanged.');
+  await expect(page.locator('.app')).toHaveAttribute('data-preview-id','');
+  await page.getByRole('button',{name:'Preview changes',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Apply & Download',exact:true})).toBeEnabled({timeout:30000});
   await page.getByRole('button',{name:'Discard preview',exact:true}).click();
   await expect(page.locator('.app')).toHaveAttribute('data-preview-id','');
   await expect(page.getByRole('button',{name:'Download PDF',exact:true})).toBeDisabled();

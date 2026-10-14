@@ -27,11 +27,16 @@ export function validateAnalysis(plan: AIPlan, blocks: ContextBlock[], instructi
   if(financial&&invoices.length>1&&!invoices.some(id=>instruction.includes(id)))return clarify('This context contains multiple invoice numbers. Which invoice should this instruction affect?');
   if(plan.clarification?.trim()) return clarify(plan.clarification);
 
-  if(plan.edits.some(e=>e.ambiguity!=='none')) return clarify('Which occurrence or line item should these changes affect? Specify its row or page.');
+  if(plan.edits.some(e=>e.ambiguity!=='none')) {
+    if(!plan.interpretation?.trim()||!plan.alternatives?.length)return clarify('Which line item should these changes affect?');
+    plan.edits.forEach(e=>{e.ambiguity='none';});
+  }
   const resolved=plan.edits.map(e=>({e,b:blocks.find(b=>b.id===e.blockId&&b.page===e.page)}));
   for(const {e,b} of [...resolved].sort((a,b)=>(a.e.calculation?.operation==='sum'?1:0)-(b.e.calculation?.operation==='sum'?1:0))) {
     if(!b || !b.text.includes(e.original) || b.text.indexOf(e.original)!==b.text.lastIndexOf(e.original))
       return clarify('The target is not unique in the supplied context. Specify its row or page.');
+    if(b.field?.role==='fee'&&/(?:preserve|keep|retain).{0,50}(?:fee|unloading|surcharge|accessorial)/i.test(instruction))return clarify('The plan would change a fee you asked to preserve. No changes were made.');
+    if(b.field?.type==='date'&&/ship/i.test(b.field.label)&&(/(?:preserve|keep|retain).{0,50}ship\s*date/i.test(instruction)||(/invoice\s*date/i.test(instruction)&&!/change.{0,30}ship\s*date/i.test(instruction))))return clarify('The plan would change a shipment date instead of the requested invoice date.');
     const isFinancial=['rate','quantity','charge','fee','subtotal','total'].includes(b.field?.type||'');
     if(financial && !isFinancial && !((b.field?.type==='date'&&/date|October|November|December|January|February|March|April|May|June|July|August|September/i.test(instruction))||(b.field?.type==='invoice_id'&&/invoice\s*(number|no|#)/i.test(instruction))))
       return clarify('The plan targets a label or an unrelated field instead of a requested numeric value. No changes were made.');

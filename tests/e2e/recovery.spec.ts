@@ -69,6 +69,7 @@ test('AI-first → real edited preview → original comparison → one approval 
   await page.getByRole('button',{name:'Discard preview',exact:true}).click();
   await expect(page.locator('.app')).toHaveAttribute('data-preview-id','');
   await expect(page.getByRole('button',{name:'Download PDF',exact:true})).toBeDisabled();
+  await expect(page.getByText('Update the primary freight row. Preserve the separate 90.00 unloading fee.',{exact:true})).not.toBeVisible();
   expect(readFileSync(input)).toEqual(original);
 });
 test('realistic logistics table: wider right-aligned rate preserves fee, borders and all pages',async({page},testInfo)=>{

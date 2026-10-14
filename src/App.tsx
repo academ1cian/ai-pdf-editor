@@ -211,6 +211,7 @@ export default function App() {
     setSelected(undefined);
     setAiEdits([]);
     setAiClarification('');
+    setAiInterpretation('');setAiAlternatives([]);
     setDraftTargets([]);
     setPreview(undefined);
     setCompareOriginal(false);
@@ -394,6 +395,7 @@ export default function App() {
       if(!context.length)throw new Error('This PDF has no selectable text. Scans need OCR before this editor can prepare changes.');
       setAiEdits([]);
       setAiClarification('');
+      setAiInterpretation('');setAiAlternatives([]);
       const response = await fetch('/api/plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -449,7 +451,7 @@ export default function App() {
     }catch(e){setError((e as Error).message);}finally{setBusy('');}
   };
   const discardPreview=()=>{
-    setPreview(undefined);setCompareOriginal(false);setAiEdits([]);setAiClarification('');setRenderedSnapshot('');
+    setPreview(undefined);setCompareOriginal(false);setAiEdits([]);setAiClarification('');setAiInterpretation('');setAiAlternatives([]);setRenderedSnapshot('');
     void getClient().request('discardPreview').catch(()=>{});
     setNotice('Preview discarded. Your document is unchanged.');
   };

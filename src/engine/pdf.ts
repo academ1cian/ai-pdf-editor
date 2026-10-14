@@ -1,4 +1,5 @@
 import * as mupdf from 'mupdf';
+import { planOperands, applyOperands } from './operands';
 import {
   targetFromRange,
   glyphsForTarget,
@@ -318,6 +319,12 @@ function check(doc: mupdf.PDFDocument, model: DocumentModel, op: Operation): Pro
       )
     )
       throw new Error('Select text with one font, size, color, and baseline.');
+    const operand = planOperands(doc, op, glyphs);
+    if (operand) return {
+      ...proposal, target, status: 'SAFE_TO_APPLY', strategy: 'operand',
+      message: 'Preserves the original font, encoding, spacing and text operators. Export integrity will be checked before download.',
+      font: first.font, size: first.size, origin: first.origin, layoutRect: target.rect, fitting: 'original',
+    };
     const page = doc.loadPage(target.page);
     const a = new Arena();
     try {
@@ -579,6 +586,7 @@ export function applyBatchPDF(bytes: Uint8Array, operations: Operation[]): EditR
       ...op,
       ...resolve(model, op.target),
       index,
+      operand: op.strategy === 'operand' ? planOperands(doc, op, resolve(model, op.target).glyphs) : undefined,
     }));
     const beforeFeatures = model.pages.map((p) => {
       const page = doc.loadPage(p.index);
@@ -590,8 +598,15 @@ export function applyBatchPDF(bytes: Uint8Array, operations: Operation[]): EditR
     });
     // All geometry and glyph references above come from the same unmodified snapshot.
     for (const pageModel of model.pages) {
-      const edits = resolved.filter((op) => op.target.page === pageModel.index);
+      let edits = resolved.filter((op) => op.target.page === pageModel.index);
       if (!edits.length) continue;
+      const streamEdits = edits.filter(op => op.strategy === 'operand');
+      if (streamEdits.length) {
+        if (streamEdits.some(op => !op.operand)) throw new Error('Content operands changed. No changes committed.');
+        applyOperands(doc, pageModel.index, streamEdits.map(op => op.operand!));
+        edits = edits.filter(op => op.strategy !== 'operand');
+        if (!edits.length) continue;
+      }
       const page = arena.own(doc.loadPage(pageModel.index));
       const obj = arena.own(page.getObject());
       const annotations = arena.own(obj.get('Annots'));
@@ -711,6 +726,13 @@ export function applyBatchPDF(bytes: Uint8Array, operations: Operation[]): EditR
         const origin = edit.origin || first.origin;
         const size = edit.size || first.size;
         let x = origin[0];
+        if (edit.strategy === 'operand') {
+          for (let i = 0; i < edit.glyphs.length; i++) {
+            if (!consume({ ...edit.glyphs[i], text: edit.replacement[i] }))
+              throw new Error(`Change ${edit.index + 1}: original-operand replacement failed position/style verification. No changes committed.`);
+          }
+          continue;
+        }
         for (const char of edit.replacement) {
           if (char.trim() && !consume({ ...first, size, text: char, origin: [x, origin[1]] }))
             throw new Error(

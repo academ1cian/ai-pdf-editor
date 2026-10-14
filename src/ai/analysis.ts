@@ -1,27 +1,18 @@
+import { invoiceIntent } from './instruction';
 import type { AIPlan } from './schema';
 import type { ContextBlock } from './context';
-// Fixed-point millionths; no binary floating point arithmetic for money or quantities.
-export function decimal(value: string): bigint {
-  const clean=value.trim().replace(/^[$£€]/,'');
-  if (!/^-?(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d{1,6})?$/.test(clean)) throw new Error('Ambiguous numeric format.');
-  const s=clean.replace(/,/g,''); const neg=s.startsWith('-'); const [whole,fraction='']=s.replace(/^-/,'').split('.');
-  return (BigInt(whole)*1000000n+BigInt(fraction.padEnd(6,'0')))*(neg?-1n:1n);
-}
-export function formatNumber(value:bigint,original:string):string {
-  const digits=Math.min(6,original.replace(/,/g,'').match(/\.(\d+)/)?.[1].length||0);
-  const scale=10n**BigInt(6-digits),negative=value<0n,rounded=((negative?-value:value)+scale/2n)/scale;
-  const base=10n**BigInt(digits);let whole=(rounded/base).toString();
-  if(original.includes(','))whole=whole.replace(/\B(?=(\d{3})+(?!\d))/g,',');
-  return (original.match(/^[$£€]/)?.[0]||'')+(negative?'-':'')+whole+(digits?'.'+(rounded%base).toString().padStart(digits,'0'):'');
-}
+import { decimal, formatNumber } from './numbers';
+export { decimal, formatNumber } from './numbers';
 // Semantic alternatives belong in the reviewed plan; mere field count is not an ambiguity.
 export function clarifyIntent(blocks:ContextBlock[],instruction:string):string|undefined {
   if(/rate|charges?/i.test(instruction)&&!blocks.some(b=>['rate','charge'].includes(b.field?.type||'')))return 'I could not identify the rate and charge values reliably in this context. Which table or page should I use?';
 }
 export function validateAnalysis(plan: AIPlan, blocks: ContextBlock[], instruction: string): AIPlan {
-  const earlyQuestion=clarifyIntent(blocks,instruction);
+  const intent=invoiceIntent(instruction);
+  const effectiveInstruction=intent? 'Change the rate and charge to '+formatNumber(intent.amount,'0.00')+' and recalculate the total accordingly.':instruction;
+  const earlyQuestion=clarifyIntent(blocks,effectiveInstruction);
   if(earlyQuestion)return {edits:[],clarification:earlyQuestion};
-  const financial=/\b(rate|charges?|amount|total|subtotal|quantity)\b/i.test(instruction) && !/\b(rename|heading|label|word)\b/i.test(instruction);
+  const financial=/\b(rate|charges?|amount|total|subtotal|quantity)\b/i.test(effectiveInstruction) && !/\b(rename|heading|label|word)\b/i.test(effectiveInstruction);
   const clarify=(message:string):AIPlan=>({edits:[],clarification:message});
   const invoices=[...new Set(blocks.filter(b=>b.field?.type==='invoice_id').map(b=>b.text))];
   if(financial&&invoices.length>1&&!invoices.some(id=>instruction.includes(id)))return clarify('This context contains multiple invoice numbers. Which invoice should this instruction affect?');
@@ -35,21 +26,22 @@ export function validateAnalysis(plan: AIPlan, blocks: ContextBlock[], instructi
   for(const {e,b} of [...resolved].sort((a,b)=>(a.e.calculation?.operation==='sum'?1:0)-(b.e.calculation?.operation==='sum'?1:0))) {
     if(!b || !b.text.includes(e.original) || b.text.indexOf(e.original)!==b.text.lastIndexOf(e.original))
       return clarify('The target is not unique in the supplied context. Specify its row or page.');
-    if(b.field?.role==='fee'&&/(?:preserve|keep|retain).{0,50}(?:fee|unloading|surcharge|accessorial)/i.test(instruction))return clarify('The plan would change a fee you asked to preserve. No changes were made.');
-    if(b.field?.type==='date'&&/ship/i.test(b.field.label)&&(/(?:preserve|keep|retain).{0,50}ship\s*date/i.test(instruction)||(/invoice\s*date/i.test(instruction)&&!/change.{0,30}ship\s*date/i.test(instruction))))return clarify('The plan would change a shipment date instead of the requested invoice date.');
+    if(b.field?.role==='fee'&&/(?:preserve|keep|retain).{0,50}(?:fee|unloading|surcharge|accessorial)/i.test(effectiveInstruction))return clarify('The plan would change a fee you asked to preserve. No changes were made.');
+    if(b.field?.type==='date'&&/ship/i.test(b.field.label)&&(/(?:preserve|keep|retain).{0,50}ship\s*date/i.test(effectiveInstruction)||(/invoice\s*date/i.test(effectiveInstruction)&&!/change.{0,30}ship\s*date/i.test(effectiveInstruction))))return clarify('The plan would change a shipment date instead of the requested invoice date.');
     const isFinancial=['rate','quantity','charge','fee','subtotal','total'].includes(b.field?.type||'');
-    if(financial && !isFinancial && !((b.field?.type==='date'&&/date|October|November|December|January|February|March|April|May|June|July|August|September/i.test(instruction))||(b.field?.type==='invoice_id'&&/invoice\s*(number|no|#)/i.test(instruction))))
+    if(financial && isFinancial && b.text.trim()!==e.original) return clarify('The complete original numeric field must be identified. No changes were made.');
+    if(financial && !isFinancial && !((b.field?.type==='date'&&/date|October|November|December|January|February|March|April|May|June|July|August|September/i.test(effectiveInstruction))||(b.field?.type==='invoice_id'&&/invoice\s*(number|no|#)/i.test(effectiveInstruction))))
       return clarify('The plan targets a label or an unrelated field instead of a requested numeric value. No changes were made.');
     if(financial && isFinancial && !e.calculation) {
       const kind=b.field?.type;
-      if(b.field?.role==='fee'&&!/fees?|unloading|fuel|surcharge|accessorial|tax/i.test(instruction))return clarify('This plan would change an additional fee. I need confirmation before including that fee.');
+      if(b.field?.role==='fee'&&!/fees?|unloading|fuel|surcharge|accessorial|tax/i.test(effectiveInstruction))return clarify('This plan would change an additional fee. I need confirmation before including that fee.');
       if(!kind || ['text','number'].includes(kind) ||
-        (kind==='quantity'&&!/qty|quantity|units/i.test(instruction)) ||
-        (kind==='rate'&&!/rate|unit\s*(price|cost)/i.test(instruction)) ||
-        (kind==='charge'&&!/charges?|amount/i.test(instruction)))
+        (kind==='quantity'&&!/qty|quantity|units/i.test(effectiveInstruction)) ||
+        (kind==='rate'&&!/rate|unit\s*(price|cost)/i.test(effectiveInstruction)) ||
+        (kind==='charge'&&!/charges?|amount/i.test(effectiveInstruction)))
         return clarify('Which labeled numeric field should change? The proposed value is not reliably associated with the requested label.');
       try {
-        const requested=(instruction.match(/-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?/g)||[]).map(decimal);
+        const requested=(effectiveInstruction.match(/-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?/g)||[]).map(decimal);
         if(!requested.includes(decimal(e.replacement)))return clarify('Confirm the replacement amount for '+(e.label||e.original)+'. It was not specified in your instruction.');
         e.replacement=formatNumber(decimal(e.replacement),e.original);
       } catch { return clarify('Use an explicit numeric replacement and identify the row.'); }
@@ -76,8 +68,14 @@ export function validateAnalysis(plan: AIPlan, blocks: ContextBlock[], instructi
       e.explanation+=' Calculation: '+changed.join(product?' × ':' + ')+' = '+e.replacement+'. Verify the source fields before approval.';
     }
   }
-  if(financial && /\b(accordingly|recalculate|recompute)\b/i.test(instruction) && !plan.edits.some(e=>e.calculation))
+  if(financial && /\b(accordingly|recalculate|recompute)\b/i.test(effectiveInstruction) && !plan.edits.some(e=>e.calculation))
     return clarify('Which line item should be set to 1000, and which amounts make up the total? No financial values have been changed.');
+  if(intent) {
+    const primary=resolved.filter(r=>r.b?.field?.role!=='fee');
+    const rate=primary.filter(r=>r.b?.field?.type==='rate'),charge=primary.filter(r=>r.b?.field?.type==='charge'),total=primary.filter(r=>r.b?.field?.type==='total');
+    if(plan.edits.length!==3||rate.length!==1||charge.length!==1||total.length!==1||!total[0].e.calculation||rate[0].b!.field!.row!==charge[0].b!.field!.row||rate[0].b!.page!==charge[0].b!.page||decimal(rate[0].e.replacement)!==intent.amount||decimal(charge[0].e.replacement)!==intent.amount)
+      return clarify('The rate, charge and payable total must be updated together. No changes were made.');
+  }
   const feeDescriptions=blocks.filter(b=>b.field?.type==='charge'&&b.field.role==='fee');
   if(financial&&feeDescriptions.length&&!plan.interpretation)plan.interpretation='Update the primary line item; keep additional fees unchanged and recalculate the verified total.';
   return plan;

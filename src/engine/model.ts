@@ -43,6 +43,7 @@ export interface Operation {
   replacement: string;
 }
 export interface Proposal extends Operation {
+  strategy?: 'operand';
   status: Status;
   message: string;
   font?: string;

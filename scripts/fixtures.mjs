@@ -356,3 +356,4 @@ console.log(`Generated ${manifest.length} distinct synthetic fixtures.`);
   text(payment,'Document control: retain shipment references and all addresses.',40,450,10);
   const bytes=await doc.save();await writeFile('tests/fixtures/recovery-logistics.pdf',bytes);await writeFile('public/logistics-demo.pdf',bytes);
 }
+await import('./dense-fixtures.mjs');

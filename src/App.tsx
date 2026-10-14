@@ -41,9 +41,11 @@ import {
 import { AIPlanSchema, type AIPlan } from './ai/schema';
 
 import { buildContext, type ContextBlock } from './ai/context';
+import { localInvoicePlan } from './ai/invoice-intent';
+import { validateAnalysis } from './ai/analysis';
 import { resolvePlan } from './ai/resolve';
 
-type Preview = {id:string;model:DocumentModel;validation:Validation;operations:Operation[];proposals:Proposal[]};
+type Preview = {id:string;sha256:string;model:DocumentModel;validation:Validation;operations:Operation[];proposals:Proposal[]};
 type Config = { enabled: boolean; siteKey?: string; reason?: string };
 type Change = { original: string; replacement: string; page: number; transaction: number };
 type QueuedChange = Operation & { included: boolean; note?: string };
@@ -384,8 +386,10 @@ export default function App() {
     const width = model.pages[page].bounds[2] - model.pages[page].bounds[0];
     setScale(Math.max(0.35, Math.min(1.6, (viewer.current.clientWidth - 100) / width)));
   };
+  const localPlan = model ? localInvoicePlan(buildContext(model,instruction,page),instruction) : undefined;
+  const useLocal = !!localPlan && !consent;
   const askAI = async () => {
-    if (!model || busy || !consent || !config.enabled || !token) return;
+    if (!model || busy || (!useLocal && (!consent || !config.enabled || !token))) return;
     if(queue.length){setError('Apply or clear the manual change list before preparing an AI preview.');return;}
     setPreview(undefined);setCompareOriginal(false);setRenderedSnapshot('');
     setBusy('Preparing AI proposals…');
@@ -396,6 +400,14 @@ export default function App() {
       setAiEdits([]);
       setAiClarification('');
       setAiInterpretation('');setAiAlternatives([]);
+      if(useLocal && localPlan) {
+        const plan=validateAnalysis(localPlan,context,instruction);
+        setAiEdits(plan.edits);setAiClarification(plan.clarification||'');setAiInterpretation(plan.interpretation||'');setAiAlternatives([]);
+        setAiQuota('Interpreted on this device. No provider request or document text transmission.');
+        if(plan.edits.length)await preparePreview(plan,context);
+        setNotice(plan.edits.length?'Review the actual edited document, then Apply & Download.':plan.clarification||'No changes proposed.');
+        return;
+      }
       const response = await fetch('/api/plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -655,6 +667,7 @@ export default function App() {
       className="app"
       data-build-commit={BUILD_COMMIT}
       data-preview-id={preview?.id||''}
+      data-preview-sha256={preview?.sha256||''}
       data-rendered-snapshot={renderedSnapshot}
       onDragOver={(e) => {
         e.preventDefault();
@@ -1339,7 +1352,7 @@ export default function App() {
                   onChange={(e) => {if(preview)discardPreview();setInstruction(e.target.value);}}
                 />
                 <div className={config.enabled ? 'privacy-callout' : 'availability-callout'}>
-                  {config.enabled ? (
+                  {useLocal ? <><ShieldCheck size={16}/><span>This invoice request is interpreted on your device. No document text is sent. To use Groq instead, opt in below.</span></> : config.enabled ? (
                     <>
                       <ShieldCheck size={16} />
                       <span>
@@ -1371,9 +1384,7 @@ export default function App() {
                   className="primary full"
                   disabled={
                     !model ||
-                    !config.enabled ||
-                    !consent ||
-                    !token ||
+                    (!useLocal && (!config.enabled || !consent || !token)) ||
                     instruction.trim().length < 3 ||
                     !!busy
                   }

@@ -9,6 +9,7 @@ export default ts.config(
       'tests/evidence/**',
       'playwright-report/**',
       'test-results/**',
+      'tmp/**',
     ],
   },
   js.configs.recommended,

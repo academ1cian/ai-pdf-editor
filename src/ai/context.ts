@@ -9,7 +9,7 @@ const numeric=/^[$£€]?-?\d[\d,]*(?:\.\d+)?%?$/;
 const date=/^(?:\d{1,2}[/-]){2}\d{2,4}$/;
 const feeWords=/\b(fee|unl|unload(?:ing)?|fuel|surcharge|toll|accessorial|detention|tax|handling|additional)\b/i;
 export function labelType(label:string):FieldType|undefined {
-  if(/^(?:(?:grand\s+)?total(?:\s+(?:amount|due))?|balance(?:\s+due)?|amount\s+due)$/i.test(label))return 'total';
+  if(/^(?:(?:grand\s+)?total(?:\s+(?:amount|due))?|balance(?:\s+due)?|amount\s+due|please\s+pay\s+this\s+amount|payable(?:\s+total)?)$/i.test(label))return 'total';
   if(/^subtotal$/i.test(label))return 'subtotal';
   if(feeWords.test(label)&&label.length<=32&&!/\d|[.!;:]/.test(label)&&!/^no\b|^without\b/i.test(label)&&label.split(/\s+/).length<=4)return 'fee';
   if(/^(?:unit\s*(?:price|cost)|rate)$/i.test(label))return 'rate';
@@ -83,11 +83,11 @@ export function buildContext(model:DocumentModel,instruction:string,currentPage:
     if(fee)b.field.role='fee';
   }
   const terms=instruction.toLowerCase().match(/[a-z]{3,}/g)||[];
-  const financial=/rate|charge|amount|total|invoice|quantity|fee/i.test(instruction);
+  const financial=/rate|charge|amount|total|invoice|quantity|fee|рейт|чарж|итог|сумм|ставк/i.test(instruction);
   const monetary=blocks.filter(b=>['rate','charge','fee','total','subtotal'].includes(b.field!.type));
   const ranked=blocks.map(b=>({b,score:(b.page===currentPage+1?3:0)+terms.filter(t=>(b.text+' '+b.field?.label).toLowerCase().includes(t)).length*4+(b.field?.type==='date'&&/date|October|November|December|January|February|March|April|May|June|July|August|September/i.test(instruction)?25:0)+
     (financial&&['rate','charge','fee','total','subtotal','quantity','weight'].includes(b.field!.type)?20:0)+
-    (financial&&b.field!.description?5:0)})).sort((a,b)=>b.score-a.score);
+    (financial&&b.field!.description?5:0)+(['total','subtotal'].includes(b.field!.type)?30:0)})).sort((a,b)=>b.score-a.score);
   const chosen:ContextBlock[]=[];let used=0;
   for(const {b} of ranked){const cost=JSON.stringify(b).length;
     if(chosen.length>=50||used+cost>9000)continue;chosen.push(b);used+=cost;}

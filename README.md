@@ -2,11 +2,13 @@
 
 Careful corrections to existing PDF text, with an explicit review step and checks on the **actual exported PDF**. Manual editing stays on your device and works without an AI provider.
 
-**Status: COMPLETE for the documented MVP scope.** [Open the live editor](https://ai-pdf-editor.pages.dev). Production manual editing/export and real Turnstile → Groq proposal → review → apply → download have passed, including independent PDF.js verification. See [production evidence](docs/PRODUCTION-VERIFICATION.md) and [current CI/deployment runs](https://github.com/academ1cian/ai-pdf-editor/actions).
+[Open the editor](https://ai-pdf-editor.pages.dev). See [numeric operand editing and verification](docs/OPERAND-EDITING.md) for the current implementation and its support limits. Release identity is available at `/version.json`; historical evidence below describes the earlier release.
 
 ![Actual editor after a validated edit](docs/screenshots/editor.png)
 
 ## AI-first editing
+
+Coordinated invoice requests in English, Russian, or mixed accounting terminology can be interpreted locally when one main rate/charge pair and a reconciled payable total are identifiable. Separate fees are preserved and arithmetic is deterministic. No cloud consent or provider allowance is needed for that narrow path. Opting in to Groq uses the protected cloud planner for broader requests.
 
 Upload a supported PDF, describe coordinated changes, and review the actual edited PDF before approving. The worker validates a temporary copy without changing history; “Apply & Download” commits and downloads those same bytes as one Undo transaction. Compare original/edited views and inspect highlighted changes. Manual Find & Replace and batch selection remain available in the secondary tab.
 
@@ -21,7 +23,7 @@ Current model comparison: 120B passed the exact invoice and repeated-date multi-
 - Compact batch queue with individual replacements/inclusion/removal, a common replacement action, review/apply-all, and one-step undo for the entire atomic batch.
 - Explicit occurrence selection when text appears multiple times.
 - Review source/replacement, page/position, font/size, measured fit and rejection reasons.
-- Actual source-text removal through applied redaction, followed by real page-content insertion. No rectangle covering old text and no annotation-only mock edits.
+- Original compatible numeric operand replacement, with applied redaction and insertion as a validated fallback for other supported spans. No rectangle covering old text and no annotation-only mock edits.
 - Export validation: reopen, page count, exact changed-region text, neighboring glyph positions, hyperlinks and all-page pixel comparison.
 - Immutable original, validated snapshots, undo, reset, change history and genuinely modified downloads.
 - Optional AI proposals through a protected Groq Worker; real production integration verified. Manual editing works independently of AI availability.
@@ -49,7 +51,7 @@ flowchart LR
     PDF[Local PDF] --> W[Browser Web Worker]
     W --> M[Structured document model]
     M --> R[Explicit target and proposal review]
-    R --> E[MuPDF redaction + page text insertion]
+    R --> E[Compatible operand editing / validated fallback]
     E --> V[Reopen + structural + pixel validation]
     V --> D[Validated PDF download]
     M -.consented relevant text and layout.-> API[Cloudflare Pages API binding]

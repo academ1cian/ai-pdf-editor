@@ -184,3 +184,10 @@ it('reconciles real provider usage, refunds 429, and distinguishes application t
   const capped=await handleAPI(request(),configured,actual);
   expect((await capped.json()).code).toBe('global_daily');
 });
+
+it('bounds uncertain reservations by estimated tokens instead of every serialized byte',async()=>{
+ let held=0;
+ const budget={idFromName:(n:string)=>n,get:()=>({fetch:async(req:Request)=>{if(new URL(req.url).pathname==='/reserve')held=(await req.json() as {tokens:number}).tokens;return Response.json({remaining:29});}})};
+ const r=await handleAPI(request(),{...env,BUDGET:budget},fetcher());
+ expect(r.status).toBe(200);expect(held).toBeGreaterThan(2000);expect(held).toBeLessThan(7500);
+});

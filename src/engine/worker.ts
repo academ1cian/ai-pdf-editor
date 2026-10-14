@@ -6,7 +6,7 @@ const engine = await import('./pdf');
 let history: History | undefined;
 let sequence=0;
 let draft: {id:string;base:Uint8Array;operations:Operation[];proposals:Proposal[];output:EditResult}|undefined;
-self.onmessage = ({ data }: { data: { id: number; type: string; payload: unknown } }) => {
+const handleMessage = async ({ data }: { data: { id: number; type: string; payload: unknown } }) => {
   const { id, type, payload } = data;
   try {
     let result: unknown;
@@ -30,7 +30,8 @@ self.onmessage = ({ data }: { data: { id: number; type: string; payload: unknown
         const output=engine.applyBatchPDF(base,operations);
         const previewId='preview-'+(++sequence)+'-'+output.model.revision;
         draft={id:previewId,base,operations,proposals:proposals.operations,output};
-        result={id:previewId,model:output.model,validation:output.validation,operations,proposals:proposals.operations};
+        const sha256=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',output.bytes.slice().buffer))).map(b=>b.toString(16).padStart(2,'0')).join('');
+        result={id:previewId,sha256,model:output.model,validation:output.validation,operations,proposals:proposals.operations};
       } else if(type==='commitPreview'){
         const previewId=payload as string;
         if(!draft||draft.id!==previewId)throw new Error('This preview expired. Prepare it again.');
@@ -69,4 +70,6 @@ self.onmessage = ({ data }: { data: { id: number; type: string; payload: unknown
     });
   }
 };
+let pending=Promise.resolve();
+self.onmessage = event => { pending=pending.then(()=>handleMessage(event)); };
 self.postMessage({ ready: true });

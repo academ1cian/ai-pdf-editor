@@ -150,8 +150,8 @@ test('Ctrl/Cmd-assisted independent selection and common replacement work withou
   await page.getByLabel('Upload PDF').setInputFiles(resolve('tests/fixtures/12-duplicates.pdf'));
   const lines = page.getByRole('button', { name: 'Select text: John Smith', exact: true });
   await expect(lines).toHaveCount(2);
-  await lines.nth(0).click({ modifiers: ['Control'] });
-  await lines.nth(1).click({ modifiers: ['Control'] });
+  await lines.nth(0).click({ modifiers: ['ControlOrMeta'] });
+  await lines.nth(1).click({ modifiers: ['ControlOrMeta'] });
   await expect(page.locator('.batch-item')).toHaveCount(2);
   await page.getByLabel('Same replacement for included changes').fill('Jane Doe');
   await page.getByRole('button', { name: 'Set included replacements', exact: true }).click();

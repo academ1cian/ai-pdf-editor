@@ -1,0 +1,734 @@
+[
+  {
+    "id": "01-paragraph",
+    "target": "pending",
+    "replacement": "ready",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "simple",
+    "result": "PASS",
+    "validation": {
+      "status": "SAFE_TO_APPLY",
+      "pageCount": 1,
+      "changedPixels": 533,
+      "outsidePixels": 0,
+      "checkedPages": 1,
+      "checks": [
+        "Reopened exported PDF",
+        "Page count preserved",
+        "Replacement searchable in target region",
+        "Original target removed",
+        "Neighboring text positions preserved",
+        "Links and annotations preserved",
+        "All pages compared at 108 dpi; zero unexpected pixels"
+      ]
+    },
+    "independent": "PDF.js reopened and extracted replacement",
+    "ms": 487
+  },
+  {
+    "id": "02-serif",
+    "target": "John Smith",
+    "replacement": "Jane Doe",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "simple",
+    "result": "PASS",
+    "validation": {
+      "status": "SAFE_TO_APPLY",
+      "pageCount": 1,
+      "changedPixels": 657,
+      "outsidePixels": 0,
+      "checkedPages": 1,
+      "checks": [
+        "Reopened exported PDF",
+        "Page count preserved",
+        "Replacement searchable in target region",
+        "Original target removed",
+        "Neighboring text positions preserved",
+        "Links and annotations preserved",
+        "All pages compared at 108 dpi; zero unexpected pixels"
+      ]
+    },
+    "independent": "PDF.js reopened and extracted replacement",
+    "ms": 33
+  },
+  {
+    "id": "03-monospace",
+    "target": "ABC123",
+    "replacement": "XYZ789",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "simple",
+    "result": "PASS",
+    "validation": {
+      "status": "SAFE_TO_APPLY",
+      "pageCount": 1,
+      "changedPixels": 363,
+      "outsidePixels": 0,
+      "checkedPages": 1,
+      "checks": [
+        "Reopened exported PDF",
+        "Page count preserved",
+        "Replacement searchable in target region",
+        "Original target removed",
+        "Neighboring text positions preserved",
+        "Links and annotations preserved",
+        "All pages compared at 108 dpi; zero unexpected pixels"
+      ]
+    },
+    "independent": "PDF.js reopened and extracted replacement",
+    "ms": 24
+  },
+  {
+    "id": "04-large",
+    "target": "DRAFT",
+    "replacement": "FINAL",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "simple",
+    "result": "PASS",
+    "validation": {
+      "status": "SAFE_TO_APPLY",
+      "pageCount": 1,
+      "changedPixels": 2801,
+      "outsidePixels": 0,
+      "checkedPages": 1,
+      "checks": [
+        "Reopened exported PDF",
+        "Page count preserved",
+        "Replacement searchable in target region",
+        "Original target removed",
+        "Neighboring text positions preserved",
+        "Links and annotations preserved",
+        "All pages compared at 108 dpi; zero unexpected pixels"
+      ]
+    },
+    "independent": "PDF.js reopened and extracted replacement",
+    "ms": 26
+  },
+  {
+    "id": "05-small",
+    "target": "2025",
+    "replacement": "2026",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "simple",
+    "result": "PASS",
+    "validation": {
+      "status": "SAFE_TO_APPLY",
+      "pageCount": 1,
+      "changedPixels": 32,
+      "outsidePixels": 0,
+      "checkedPages": 1,
+      "checks": [
+        "Reopened exported PDF",
+        "Page count preserved",
+        "Replacement searchable in target region",
+        "Original target removed",
+        "Neighboring text positions preserved",
+        "Links and annotations preserved",
+        "All pages compared at 108 dpi; zero unexpected pixels"
+      ]
+    },
+    "independent": "PDF.js reopened and extracted replacement",
+    "ms": 22
+  },
+  {
+    "id": "06-bold",
+    "target": "Sales Manager",
+    "replacement": "Team Lead",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "simple",
+    "result": "PASS",
+    "validation": {
+      "status": "SAFE_TO_APPLY",
+      "pageCount": 1,
+      "changedPixels": 1692,
+      "outsidePixels": 0,
+      "checkedPages": 1,
+      "checks": [
+        "Reopened exported PDF",
+        "Page count preserved",
+        "Replacement searchable in target region",
+        "Original target removed",
+        "Neighboring text positions preserved",
+        "Links and annotations preserved",
+        "All pages compared at 108 dpi; zero unexpected pixels"
+      ]
+    },
+    "independent": "PDF.js reopened and extracted replacement",
+    "ms": 25
+  },
+  {
+    "id": "07-italic",
+    "target": "thoughtful",
+    "replacement": "clear",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "simple",
+    "result": "PASS",
+    "validation": {
+      "status": "SAFE_TO_APPLY",
+      "pageCount": 1,
+      "changedPixels": 698,
+      "outsidePixels": 0,
+      "checkedPages": 1,
+      "checks": [
+        "Reopened exported PDF",
+        "Page count preserved",
+        "Replacement searchable in target region",
+        "Original target removed",
+        "Neighboring text positions preserved",
+        "Links and annotations preserved",
+        "All pages compared at 108 dpi; zero unexpected pixels"
+      ]
+    },
+    "independent": "PDF.js reopened and extracted replacement",
+    "ms": 22
+  },
+  {
+    "id": "08-bold-italic",
+    "target": "required",
+    "replacement": "done",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "simple",
+    "result": "PASS",
+    "validation": {
+      "status": "SAFE_TO_APPLY",
+      "pageCount": 1,
+      "changedPixels": 767,
+      "outsidePixels": 0,
+      "checkedPages": 1,
+      "checks": [
+        "Reopened exported PDF",
+        "Page count preserved",
+        "Replacement searchable in target region",
+        "Original target removed",
+        "Neighboring text positions preserved",
+        "Links and annotations preserved",
+        "All pages compared at 108 dpi; zero unexpected pixels"
+      ]
+    },
+    "independent": "PDF.js reopened and extracted replacement",
+    "ms": 30
+  },
+  {
+    "id": "09-shorter",
+    "target": "Alexander Hamilton",
+    "replacement": "Alex",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "simple",
+    "result": "PASS",
+    "validation": {
+      "status": "SAFE_TO_APPLY",
+      "pageCount": 1,
+      "changedPixels": 741,
+      "outsidePixels": 0,
+      "checkedPages": 1,
+      "checks": [
+        "Reopened exported PDF",
+        "Page count preserved",
+        "Replacement searchable in target region",
+        "Original target removed",
+        "Neighboring text positions preserved",
+        "Links and annotations preserved",
+        "All pages compared at 108 dpi; zero unexpected pixels"
+      ]
+    },
+    "independent": "PDF.js reopened and extracted replacement",
+    "ms": 35
+  },
+  {
+    "id": "10-longer-fits",
+    "target": "iiiiiiii",
+    "replacement": "MMM",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "simple",
+    "result": "PASS",
+    "validation": {
+      "status": "SAFE_TO_APPLY",
+      "pageCount": 1,
+      "changedPixels": 414,
+      "outsidePixels": 0,
+      "checkedPages": 1,
+      "checks": [
+        "Reopened exported PDF",
+        "Page count preserved",
+        "Replacement searchable in target region",
+        "Original target removed",
+        "Neighboring text positions preserved",
+        "Links and annotations preserved",
+        "All pages compared at 108 dpi; zero unexpected pixels"
+      ]
+    },
+    "independent": "PDF.js reopened and extracted replacement",
+    "ms": 23
+  },
+  {
+    "id": "11-overflow",
+    "target": "Amy",
+    "replacement": "Alexandria Montgomery",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "EXPECTED UNSUPPORTED",
+    "category": "unsupported",
+    "result": "EXPECTED UNSUPPORTED",
+    "reason": "Replacement needs 126.7 pt; only 24.0 pt is available. Use shorter wording."
+  },
+  {
+    "id": "12-duplicates",
+    "target": "John Smith",
+    "replacement": "Jane Doe",
+    "page": 0,
+    "occurrence": 1,
+    "expected": "PASS",
+    "category": "duplicate",
+    "result": "PASS",
+    "validation": {
+      "status": "SAFE_TO_APPLY",
+      "pageCount": 1,
+      "changedPixels": 493,
+      "outsidePixels": 0,
+      "checkedPages": 1,
+      "checks": [
+        "Reopened exported PDF",
+        "Page count preserved",
+        "Replacement searchable in target region",
+        "Original target removed",
+        "Neighboring text positions preserved",
+        "Links and annotations preserved",
+        "All pages compared at 108 dpi; zero unexpected pixels"
+      ]
+    },
+    "independent": "PDF.js reopened and extracted replacement",
+    "ms": 21
+  },
+  {
+    "id": "13-multipage",
+    "target": "pending",
+    "replacement": "ready",
+    "page": 1,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "multipage",
+    "result": "PASS",
+    "validation": {
+      "status": "SAFE_TO_APPLY",
+      "pageCount": 2,
+      "changedPixels": 534,
+      "outsidePixels": 0,
+      "checkedPages": 2,
+      "checks": [
+        "Reopened exported PDF",
+        "Page count preserved",
+        "Replacement searchable in target region",
+        "Original target removed",
+        "Neighboring text positions preserved",
+        "Links and annotations preserved",
+        "All pages compared at 108 dpi; zero unexpected pixels"
+      ]
+    },
+    "independent": "PDF.js reopened and extracted replacement",
+    "ms": 39
+  },
+  {
+    "id": "14-resume",
+    "target": "Jordan Example",
+    "replacement": "Robin Sample",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "resume",
+    "result": "PASS",
+    "validation": {
+      "status": "SAFE_TO_APPLY",
+      "pageCount": 1,
+      "changedPixels": 1552,
+      "outsidePixels": 0,
+      "checkedPages": 1,
+      "checks": [
+        "Reopened exported PDF",
+        "Page count preserved",
+        "Replacement searchable in target region",
+        "Original target removed",
+        "Neighboring text positions preserved",
+        "Links and annotations preserved",
+        "All pages compared at 108 dpi; zero unexpected pixels"
+      ]
+    },
+    "independent": "PDF.js reopened and extracted replacement",
+    "ms": 55
+  },
+  {
+    "id": "15-invoice",
+    "target": "2025",
+    "replacement": "2026",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "invoice",
+    "result": "PASS",
+    "validation": {
+      "status": "SAFE_TO_APPLY",
+      "pageCount": 1,
+      "changedPixels": 62,
+      "outsidePixels": 0,
+      "checkedPages": 1,
+      "checks": [
+        "Reopened exported PDF",
+        "Page count preserved",
+        "Replacement searchable in target region",
+        "Original target removed",
+        "Neighboring text positions preserved",
+        "Links and annotations preserved",
+        "All pages compared at 108 dpi; zero unexpected pixels"
+      ]
+    },
+    "independent": "PDF.js reopened and extracted replacement",
+    "ms": 28
+  },
+  {
+    "id": "16-table",
+    "target": "Widget A",
+    "replacement": "Gadget B",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "table",
+    "result": "PASS",
+    "validation": {
+      "status": "SAFE_TO_APPLY",
+      "pageCount": 1,
+      "changedPixels": 216,
+      "outsidePixels": 0,
+      "checkedPages": 1,
+      "checks": [
+        "Reopened exported PDF",
+        "Page count preserved",
+        "Replacement searchable in target region",
+        "Original target removed",
+        "Neighboring text positions preserved",
+        "Links and annotations preserved",
+        "All pages compared at 108 dpi; zero unexpected pixels"
+      ]
+    },
+    "independent": "PDF.js reopened and extracted replacement",
+    "ms": 27
+  },
+  {
+    "id": "17-vectors",
+    "target": "pending",
+    "replacement": "ready",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "vectors",
+    "result": "PASS",
+    "validation": {
+      "status": "SAFE_TO_APPLY",
+      "pageCount": 1,
+      "changedPixels": 533,
+      "outsidePixels": 0,
+      "checkedPages": 1,
+      "checks": [
+        "Reopened exported PDF",
+        "Page count preserved",
+        "Replacement searchable in target region",
+        "Original target removed",
+        "Neighboring text positions preserved",
+        "Links and annotations preserved",
+        "All pages compared at 108 dpi; zero unexpected pixels"
+      ]
+    },
+    "independent": "PDF.js reopened and extracted replacement",
+    "ms": 36
+  },
+  {
+    "id": "18-neighbors",
+    "target": "John Smith",
+    "replacement": "Jane Doe",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "neighbors",
+    "result": "PASS",
+    "validation": {
+      "status": "SAFE_TO_APPLY",
+      "pageCount": 1,
+      "changedPixels": 488,
+      "outsidePixels": 0,
+      "checkedPages": 1,
+      "checks": [
+        "Reopened exported PDF",
+        "Page count preserved",
+        "Replacement searchable in target region",
+        "Original target removed",
+        "Neighboring text positions preserved",
+        "Links and annotations preserved",
+        "All pages compared at 108 dpi; zero unexpected pixels"
+      ]
+    },
+    "independent": "PDF.js reopened and extracted replacement",
+    "ms": 24
+  },
+  {
+    "id": "19-background",
+    "target": "Blue",
+    "replacement": "Teal",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "background",
+    "result": "PASS",
+    "validation": {
+      "status": "SAFE_TO_APPLY",
+      "pageCount": 1,
+      "changedPixels": 435,
+      "outsidePixels": 0,
+      "checkedPages": 1,
+      "checks": [
+        "Reopened exported PDF",
+        "Page count preserved",
+        "Replacement searchable in target region",
+        "Original target removed",
+        "Neighboring text positions preserved",
+        "Links and annotations preserved",
+        "All pages compared at 108 dpi; zero unexpected pixels"
+      ]
+    },
+    "independent": "PDF.js reopened and extracted replacement",
+    "ms": 51
+  },
+  {
+    "id": "20-hyperlink",
+    "target": "Visit",
+    "replacement": "See",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "link",
+    "result": "PASS",
+    "validation": {
+      "status": "SAFE_TO_APPLY",
+      "pageCount": 1,
+      "changedPixels": 312,
+      "outsidePixels": 0,
+      "checkedPages": 1,
+      "checks": [
+        "Reopened exported PDF",
+        "Page count preserved",
+        "Replacement searchable in target region",
+        "Original target removed",
+        "Neighboring text positions preserved",
+        "Links and annotations preserved",
+        "All pages compared at 108 dpi; zero unexpected pixels"
+      ]
+    },
+    "independent": "PDF.js reopened and extracted replacement",
+    "ms": 32
+  },
+  {
+    "id": "21-colored",
+    "target": "later",
+    "replacement": "now",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "color",
+    "result": "PASS",
+    "validation": {
+      "status": "SAFE_TO_APPLY",
+      "pageCount": 1,
+      "changedPixels": 253,
+      "outsidePixels": 0,
+      "checkedPages": 1,
+      "checks": [
+        "Reopened exported PDF",
+        "Page count preserved",
+        "Replacement searchable in target region",
+        "Original target removed",
+        "Neighboring text positions preserved",
+        "Links and annotations preserved",
+        "All pages compared at 108 dpi; zero unexpected pixels"
+      ]
+    },
+    "independent": "PDF.js reopened and extracted replacement",
+    "ms": 23
+  },
+  {
+    "id": "22-rotation",
+    "target": "Rotated",
+    "replacement": "Updated",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "EXPECTED UNSUPPORTED",
+    "category": "unsupported-rotation",
+    "result": "EXPECTED UNSUPPORTED",
+    "reason": "Rotated or skewed text is view-only."
+  },
+  {
+    "id": "23-scanned",
+    "target": "missing",
+    "replacement": "new",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "EXPECTED UNSUPPORTED",
+    "category": "unsupported-scan",
+    "result": "EXPECTED UNSUPPORTED",
+    "reason": "No single-style selectable target span."
+  },
+  {
+    "id": "24-form",
+    "target": "Form",
+    "replacement": "Test",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "EXPECTED UNSUPPORTED",
+    "category": "unsupported-form",
+    "result": "EXPECTED UNSUPPORTED",
+    "reason": "Interactive forms and signatures are not supported. Export a flat copy first."
+  },
+  {
+    "id": "25-mixed-style",
+    "target": "Hello world",
+    "replacement": "Hi all",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "EXPECTED UNSUPPORTED",
+    "category": "unsupported-mixed",
+    "result": "EXPECTED UNSUPPORTED",
+    "reason": "No single-style selectable target span."
+  },
+  {
+    "id": "26-page-edge",
+    "target": "target",
+    "replacement": "text",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "edge",
+    "result": "PASS",
+    "validation": {
+      "status": "SAFE_TO_APPLY",
+      "pageCount": 1,
+      "changedPixels": 320,
+      "outsidePixels": 0,
+      "checkedPages": 1,
+      "checks": [
+        "Reopened exported PDF",
+        "Page count preserved",
+        "Replacement searchable in target region",
+        "Original target removed",
+        "Neighboring text positions preserved",
+        "Links and annotations preserved",
+        "All pages compared at 108 dpi; zero unexpected pixels"
+      ]
+    },
+    "independent": "PDF.js reopened and extracted replacement",
+    "ms": 23
+  },
+  {
+    "id": "27-empty-replacement",
+    "target": "this",
+    "replacement": "",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "delete",
+    "result": "PASS",
+    "validation": {
+      "status": "SAFE_TO_APPLY",
+      "pageCount": 1,
+      "changedPixels": 180,
+      "outsidePixels": 0,
+      "checkedPages": 1,
+      "checks": [
+        "Reopened exported PDF",
+        "Page count preserved",
+        "Replacement searchable in target region",
+        "Original target removed",
+        "Neighboring text positions preserved",
+        "Links and annotations preserved",
+        "All pages compared at 108 dpi; zero unexpected pixels"
+      ]
+    },
+    "independent": "PDF.js reopened and extracted replacement",
+    "ms": 29
+  },
+  {
+    "id": "28-paragraph-tight",
+    "target": "pending",
+    "replacement": "ready",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "paragraph",
+    "result": "PASS",
+    "validation": {
+      "status": "SAFE_TO_APPLY",
+      "pageCount": 1,
+      "changedPixels": 365,
+      "outsidePixels": 0,
+      "checkedPages": 1,
+      "checks": [
+        "Reopened exported PDF",
+        "Page count preserved",
+        "Replacement searchable in target region",
+        "Original target removed",
+        "Neighboring text positions preserved",
+        "Links and annotations preserved",
+        "All pages compared at 108 dpi; zero unexpected pixels"
+      ]
+    },
+    "independent": "PDF.js reopened and extracted replacement",
+    "ms": 24
+  },
+  {
+    "id": "29-embedded-full",
+    "target": "Custom",
+    "replacement": "Clear",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "EXPECTED UNSUPPORTED",
+    "category": "embedded-font",
+    "result": "EXPECTED UNSUPPORTED",
+    "reason": "This embedded, subset, or custom font is view-only. This version edits standard PDF fonts without substitution."
+  },
+  {
+    "id": "30-embedded-subset",
+    "target": "Subset",
+    "replacement": "Small",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "EXPECTED UNSUPPORTED",
+    "category": "embedded-font",
+    "result": "EXPECTED UNSUPPORTED",
+    "reason": "This embedded, subset, or custom font is view-only. This version edits standard PDF fonts without substitution."
+  },
+  {
+    "id": "31-cyrillic",
+    "target": "Привет",
+    "replacement": "Добрый",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "EXPECTED UNSUPPORTED",
+    "category": "embedded-font",
+    "result": "EXPECTED UNSUPPORTED",
+    "reason": "Replacement text must use printable Latin ASCII characters. Unicode fonts are not yet supported."
+  }
+]

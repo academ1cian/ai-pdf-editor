@@ -1,0 +1,281 @@
+[
+  {
+    "id": "01-paragraph",
+    "target": "pending",
+    "replacement": "ready",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "simple"
+  },
+  {
+    "id": "02-serif",
+    "target": "John Smith",
+    "replacement": "Jane Doe",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "simple"
+  },
+  {
+    "id": "03-monospace",
+    "target": "ABC123",
+    "replacement": "XYZ789",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "simple"
+  },
+  {
+    "id": "04-large",
+    "target": "DRAFT",
+    "replacement": "FINAL",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "simple"
+  },
+  {
+    "id": "05-small",
+    "target": "2025",
+    "replacement": "2026",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "simple"
+  },
+  {
+    "id": "06-bold",
+    "target": "Sales Manager",
+    "replacement": "Team Lead",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "simple"
+  },
+  {
+    "id": "07-italic",
+    "target": "thoughtful",
+    "replacement": "clear",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "simple"
+  },
+  {
+    "id": "08-bold-italic",
+    "target": "required",
+    "replacement": "done",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "simple"
+  },
+  {
+    "id": "09-shorter",
+    "target": "Alexander Hamilton",
+    "replacement": "Alex",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "simple"
+  },
+  {
+    "id": "10-longer-fits",
+    "target": "iiiiiiii",
+    "replacement": "MMM",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "simple"
+  },
+  {
+    "id": "11-overflow",
+    "target": "Amy",
+    "replacement": "Alexandria Montgomery",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "EXPECTED UNSUPPORTED",
+    "category": "unsupported"
+  },
+  {
+    "id": "12-duplicates",
+    "target": "John Smith",
+    "replacement": "Jane Doe",
+    "page": 0,
+    "occurrence": 1,
+    "expected": "PASS",
+    "category": "duplicate"
+  },
+  {
+    "id": "13-multipage",
+    "target": "pending",
+    "replacement": "ready",
+    "page": 1,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "multipage"
+  },
+  {
+    "id": "14-resume",
+    "target": "Jordan Example",
+    "replacement": "Robin Sample",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "resume"
+  },
+  {
+    "id": "15-invoice",
+    "target": "2025",
+    "replacement": "2026",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "invoice"
+  },
+  {
+    "id": "16-table",
+    "target": "Widget A",
+    "replacement": "Gadget B",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "table"
+  },
+  {
+    "id": "17-vectors",
+    "target": "pending",
+    "replacement": "ready",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "vectors"
+  },
+  {
+    "id": "18-neighbors",
+    "target": "John Smith",
+    "replacement": "Jane Doe",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "neighbors"
+  },
+  {
+    "id": "19-background",
+    "target": "Blue",
+    "replacement": "Teal",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "background"
+  },
+  {
+    "id": "20-hyperlink",
+    "target": "Visit",
+    "replacement": "See",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "link"
+  },
+  {
+    "id": "21-colored",
+    "target": "later",
+    "replacement": "now",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "color"
+  },
+  {
+    "id": "22-rotation",
+    "target": "Rotated",
+    "replacement": "Updated",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "EXPECTED UNSUPPORTED",
+    "category": "unsupported-rotation"
+  },
+  {
+    "id": "23-scanned",
+    "target": "missing",
+    "replacement": "new",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "EXPECTED UNSUPPORTED",
+    "category": "unsupported-scan"
+  },
+  {
+    "id": "24-form",
+    "target": "Form",
+    "replacement": "Test",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "EXPECTED UNSUPPORTED",
+    "category": "unsupported-form"
+  },
+  {
+    "id": "25-mixed-style",
+    "target": "Hello world",
+    "replacement": "Hi all",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "EXPECTED UNSUPPORTED",
+    "category": "unsupported-mixed"
+  },
+  {
+    "id": "26-page-edge",
+    "target": "target",
+    "replacement": "text",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "edge"
+  },
+  {
+    "id": "27-empty-replacement",
+    "target": "this",
+    "replacement": "",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "delete"
+  },
+  {
+    "id": "28-paragraph-tight",
+    "target": "pending",
+    "replacement": "ready",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "PASS",
+    "category": "paragraph"
+  },
+  {
+    "id": "29-embedded-full",
+    "target": "Custom",
+    "replacement": "Clear",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "EXPECTED UNSUPPORTED",
+    "category": "embedded-font"
+  },
+  {
+    "id": "30-embedded-subset",
+    "target": "Subset",
+    "replacement": "Small",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "EXPECTED UNSUPPORTED",
+    "category": "embedded-font"
+  },
+  {
+    "id": "31-cyrillic",
+    "target": "Привет",
+    "replacement": "Добрый",
+    "page": 0,
+    "occurrence": 0,
+    "expected": "EXPECTED UNSUPPORTED",
+    "category": "embedded-font"
+  }
+]

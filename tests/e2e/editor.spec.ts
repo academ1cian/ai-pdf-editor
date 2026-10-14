@@ -13,9 +13,9 @@ test('real upload → review → apply → download → independent reopen → u
   await page.goto('/');
   await expect(page.getByRole('heading', { name: /The right words/ })).toBeVisible();
   if (process.env.EXPECTED_COMMIT_SHA) {
-    const response = await page.request.get('/version.json');
-    expect(response.ok()).toBe(true);
-    expect((await response.json()).commit).toBe(process.env.EXPECTED_COMMIT_SHA);
+    await expect(page.locator('[data-build-commit]')).toHaveAttribute(
+      'data-build-commit', process.env.EXPECTED_COMMIT_SHA,
+    );
   }
   await page.getByLabel('Upload PDF').setInputFiles(sourcePath);
   await expect(page.getByRole('img', { name: 'PDF page 1' })).toBeVisible();

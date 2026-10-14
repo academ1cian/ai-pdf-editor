@@ -192,31 +192,35 @@ async function main() {
     } finally {
       await writeFile('wrangler.jsonc', workerConfig);
     }
-    // A successful upload can precede production routing propagation.
+    // Bind readiness to the content-hashed client entry, whose compiled revision
+    // is independently checked by the public browser. Stable metadata URLs can be stale.
+    const builtHTML = await readFile('dist/index.html', 'utf8');
+    const entry = builtHTML.match(/<script[^>]+src="([^"]+\\.js)"/)?.[1];
+    if (!entry || !entry.startsWith('/assets/'))
+      throw new Error('Built client entry could not be identified.');
     let publicReady = false;
-    for (let attempt = 0; attempt < 12; attempt++) {
+    for (let attempt = 0; attempt < 20; attempt++) {
       try {
-        const [config, version] = await Promise.all([
-          fetch(`${origin}/api/config`, { signal: AbortSignal.timeout(10000) }),
-          fetch(`${origin}/version.json?deployment=${env.GITHUB_SHA}`, {
-            signal: AbortSignal.timeout(10000),
-          }),
+        const options = {
+          signal: AbortSignal.timeout(10000),
+          headers: {'Cache-Control':'no-cache'},
+          cache: 'no-store',
+        };
+        const [config, html] = await Promise.all([
+          fetch(`${origin}/api/config`, options),
+          fetch(`${origin}/`, options),
         ]);
-        publicReady =
-          config.ok &&
-          version.ok &&
+        publicReady = config.ok && html.ok &&
           (await config.json()).enabled === true &&
-          (await version.json()).commit === env.GITHUB_SHA;
+          (await html.text()).includes(`src="${entry}"`);
         if (publicReady) break;
       } catch {
-        // Transient routing/network failures are retried; response bodies are not logged.
+        // Public network failures are retried without printing response bodies.
       }
-      if (attempt < 11) await new Promise((resolve) => setTimeout(resolve, 3000));
+      if (attempt < 19) await new Promise(resolve => setTimeout(resolve, 3000));
     }
     if (!publicReady)
-      throw new Error(
-        'Public API/version checks failed after propagation retries. Deployment is not verified.',
-      );
+      throw new Error('Public client/API checks failed after propagation retries. Deployment is not verified.');
     // Public metadata only; available to the following smoke-test job.
     if (env.GITHUB_OUTPUT) await appendFile(env.GITHUB_OUTPUT, `url=${origin}\n`);
     if (env.GITHUB_STEP_SUMMARY)

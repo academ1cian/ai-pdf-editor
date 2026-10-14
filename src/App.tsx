@@ -52,6 +52,7 @@ declare global {
     };
   }
 }
+const BUILD_COMMIT = import.meta.env.VITE_BUILD_COMMIT || 'local-unpublished';
 const SOURCE = import.meta.env.VITE_SOURCE_URL || 'https://github.com/academ1cian/ai-pdf-editor';
 function save(bytes: Uint8Array, name: string) {
   const url = URL.createObjectURL(
@@ -617,6 +618,7 @@ export default function App() {
   return (
     <div
       className="app"
+      data-build-commit={BUILD_COMMIT}
       onDragOver={(e) => {
         e.preventDefault();
         if (!busy) setDragging(true);

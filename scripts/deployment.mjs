@@ -192,9 +192,27 @@ async function main() {
     } finally {
       await writeFile('wrangler.jsonc', workerConfig);
     }
-    const config = await fetch(`${origin}/api/config`, { signal: AbortSignal.timeout(20000) });
-    if (!config.ok || (await config.json()).enabled !== true)
-      throw new Error('Public API configuration check failed. Deployment is not verified.');
+    // A successful upload can precede production routing propagation.
+    let publicReady = false;
+    for (let attempt = 0; attempt < 12; attempt++) {
+      try {
+        const [config, version] = await Promise.all([
+          fetch(`${origin}/api/config`, { signal: AbortSignal.timeout(10000) }),
+          fetch(`${origin}/version.json?deployment=${env.GITHUB_SHA}`, {
+            signal: AbortSignal.timeout(10000),
+          }),
+        ]);
+        publicReady = config.ok && version.ok &&
+          (await config.json()).enabled === true &&
+          (await version.json()).commit === env.GITHUB_SHA;
+        if (publicReady) break;
+      } catch {
+        // Transient routing/network failures are retried; response bodies are not logged.
+      }
+      if (attempt < 11) await new Promise(resolve => setTimeout(resolve, 3000));
+    }
+    if (!publicReady)
+      throw new Error('Public API/version checks failed after propagation retries. Deployment is not verified.');
     // Public metadata only; available to the following smoke-test job.
     if (env.GITHUB_OUTPUT) await appendFile(env.GITHUB_OUTPUT, `url=${origin}\n`);
     if (env.GITHUB_STEP_SUMMARY)

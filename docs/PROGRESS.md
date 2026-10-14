@@ -33,3 +33,10 @@ This log is updated at meaningful milestones. Test and deployment claims must re
 - Cloudflare created the requested Pages project and confirmed its hostname is ai-pdf-editor.pages.dev. The SQLite Worker deployed and GitHub Actions provisioned both production secrets directly over TLS.
 - First frontend upload failed because Pages rejects a custom Wrangler config path. Corrected deployment to use the standard root filename only during the ephemeral runner upload. Also corrected the hosted formatting workflow's pnpm script invocation.
 - Public frontend and live AI verification remain pending. Status: PARTIALLY COMPLETE.
+
+## 2026-10-14 — Public manual and real AI workflows
+
+- Public deployment at https://ai-pdf-editor.pages.dev is accessible. Hosted Chromium production smoke tests passed all four cases, including actual upload, edit, download, independent PDF.js reopen, original unchanged, undo/reset, negative inputs, sample, responsive layout and automated accessibility audits. Public version matched commit 0a98b9356ba62f5da4f68a16ef7c6e9209a79c1d.
+- Production Turnstile verified automatically in the real browser. Groq returned a real Jordan Example → Robin Sample proposal; QA reviewed it, applied it, observed successful text/geometry/pixel export validation, and downloaded the actual synthetic PDF.
+- Added that actual downloaded synthetic PDF as reproducible evidence and a separate hosted PDF.js verifier. Independent AI-export verification is pending this run; no mock provider or fake CAPTCHA was used.
+- The initial post-upload API check ran before routing propagation; retry succeeded. Added bounded propagation retries checking both enabled API and exact public commit before reporting deployment ready.

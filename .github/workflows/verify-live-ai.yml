@@ -1,0 +1,32 @@
+name: Verify actual production AI export
+on:
+  push:
+    branches: [main]
+    paths:
+      - docs/evidence/production-ai.pdf
+      - scripts/verify-production-ai.mjs
+      - .github/workflows/verify-live-ai.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install --frozen-lockfile
+      - name: Independently reopen the actual browser-downloaded AI export
+        run: node scripts/verify-production-ai.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: real-ai-export-verification
+          path: docs/evidence/
+          retention-days: 3

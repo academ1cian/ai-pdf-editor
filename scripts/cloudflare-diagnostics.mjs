@@ -38,3 +38,26 @@ for (const [name, url] of probes) {
     console.log(name + ': network error');
   }
 }
+
+function deploymentSummary(item) {
+  if (!item) return null;
+  const metadata=item.deployment_trigger?.metadata || {};
+  return {id:item.id,environment:item.environment,branch:metadata.branch,commit:metadata.commit_hash,
+    aliases:item.aliases,stage:item.latest_stage?.name,status:item.latest_stage?.status};
+}
+try {
+  const headers={Authorization:`Bearer ${token}`};
+  const base=`https://api.cloudflare.com/client/v4/accounts/${account}/pages/projects/ai-pdf-editor`;
+  const response=await fetch(base,{headers,signal:AbortSignal.timeout(20000)});
+  if(response.ok) {
+    const data=await response.json(),project=data.result;
+    console.log(JSON.stringify({project:project.name,productionBranch:project.production_branch,
+      sourceType:project.source?.type,canonical:deploymentSummary(project.canonical_deployment),
+      latest:deploymentSummary(project.latest_deployment)}));
+  } else console.log('Project metadata: HTTP '+response.status);
+  const deployments=await fetch(base+'/deployments?per_page=5',{headers,signal:AbortSignal.timeout(20000)});
+  if(deployments.ok) {
+    const data=await deployments.json();
+    console.log(JSON.stringify({recentDeployments:(data.result||[]).map(deploymentSummary)}));
+  } else console.log('Deployment metadata: HTTP '+deployments.status);
+} catch {console.log('Public deployment metadata could not be read.');}

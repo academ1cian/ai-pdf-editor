@@ -1,7 +1,13 @@
+import {handleImage,imageEnabled} from './image-api';
+import {requestGroq,providerRetry} from './provider';
+import {budgetConfig} from './budget';
 import { AIRequestSchema, AIPlanSchema, planJSONSchema } from '../src/ai/schema';
 import { validateAnalysis, clarifyIntent } from '../src/ai/analysis';
 export interface AIEnv {
   GROQ_API_KEY?: string;
+  GROQ_API_KEY_BACKUP?:string;
+  AI?:{run:(model:string,input:{multipart:{body:ReadableStream;contentType:string}})=>Promise<{image?:string}>};
+  [key:string]:unknown;
   GROQ_MODEL?: string;
   TURNSTILE_SECRET?: string;
   TURNSTILE_SITE_KEY?: string;
@@ -41,8 +47,8 @@ function json(data: unknown, status = 200, origin?: string): Response {
 function error(message: string, status: number, origin?: string, code?: string) {
   return json({ error: message, ...(code ? {code} : {}) }, status, origin);
 }
-async function boundedBody(request: Request): Promise<string> {
-  if (Number(request.headers.get('Content-Length')) > MAX_PAYLOAD)
+async function boundedBody(request: Request,limit=MAX_PAYLOAD): Promise<string> {
+  if (Number(request.headers.get('Content-Length')) > limit)
     throw new Error('Payload too large');
   const reader = request.body?.getReader();
   if (!reader) throw new Error('Empty payload');
@@ -52,7 +58,7 @@ async function boundedBody(request: Request): Promise<string> {
     const { done, value } = await reader.read();
     if (done) break;
     size += value.byteLength;
-    if (size > MAX_PAYLOAD) {
+    if (size > limit) {
       await reader.cancel();
       throw new Error('Payload too large');
     }
@@ -77,12 +83,16 @@ export async function handleAPI(
   if (path === '/api/config' && request.method === 'GET')
     return json({
       enabled: enabled(env),
+      imageEnabled:imageEnabled(env),
+      backupConfigured:!!env.GROQ_API_KEY_BACKUP,
+      limits:budgetConfig(env),
       ...(enabled(env)
         ? { siteKey: env.TURNSTILE_SITE_KEY }
         : {
             reason: 'AI is not configured on this installation. Find & replace works without it.',
           }),
     });
+  if(path==='/api/image')return handleImage(request,env,fetcher,boundedBody);
   if (path !== '/api/plan') return error('Not found.', 404);
   if (!allowed || origin !== allowed) return error('This origin is not allowed.', 403);
   if (request.method === 'OPTIONS')
@@ -143,6 +153,7 @@ export async function handleAPI(
         role: 'user',
         content: JSON.stringify({
           instruction: payload.instruction,
+          pending_edits:payload.pending||[],
           untrusted_document_blocks: payload.blocks,
         }),
       },
@@ -167,7 +178,7 @@ export async function handleAPI(
       .join('');
     const sessionHash=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(day+':'+(payload.sessionId||ip)+':'+env.TURNSTILE_SECRET));
     const client=Array.from(new Uint8Array(sessionHash)).map(b=>b.toString(16).padStart(2,'0')).join('');
-    const reservationId=crypto.randomUUID();
+    const reservationId=client.slice(0,24)+':'+(payload.requestId||crypto.randomUUID());
     const budget = env.BUDGET!.get(env.BUDGET!.idFromName('global-groq-free-budget'));
     stage='accounting';
     const reservation = await budget.fetch(
@@ -180,9 +191,12 @@ export async function handleAPI(
     if (!reservation.ok) {
       const messages:Record<string,string>={
         global_daily:'The application’s shared daily AI allowance is reached. It resets at midnight UTC.',
-        session_daily:'This browser session reached its daily AI allowance (30 requests).',
+        session_daily:'This browser session reached its daily application AI allowance.',
         session_minute:'Too many requests in this session. Wait until the next minute.',
-        network_daily:'This shared network reached its daily AI allowance (60 requests).',
+        network_daily:'This shared network reached its daily application AI allowance.',
+        provider_rate_limit:'Groq is cooling down after a provider rate limit. The backup key shares organization quotas and is not used to bypass limits.',
+        provider_cooldown:'Groq is temporarily unavailable. A short cooldown prevents repeated failed requests.',
+        duplicate_reservation:'This request was already submitted. Its last valid preview remains available.',
         network_minute:'This shared network is sending requests too quickly.',
       };
       return json({error:messages[quota.reason||'']||'Application AI capacity is temporarily unavailable.',code:quota.reason||'app_limit',retryAfter:Math.ceil(quota.retryAfter||60)},429,allowed);
@@ -195,27 +209,23 @@ export async function handleAPI(
       if(accounted.tokens!==undefined)quota.tokens=accounted.tokens;
     };
     stage='provider';
-    const provider = await fetcher('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${env.GROQ_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    const {response:provider,credential} = await requestGroq(env,JSON.stringify({
         model: env.GROQ_MODEL || 'openai/gpt-oss-120b',
         messages,
         response_format: responseFormat,
         max_completion_tokens: 1600,
         reasoning_effort: 'low',
         temperature: 0.1,
-      }),
-      signal: AbortSignal.timeout(25000),
-    });
+      }),fetcher);
     if (!provider.ok) {
       // Confirmed provider rejection did not generate output; refund tokens/day counts, retain minute abuse attempts.
       const rejected=provider.status<500;
       stage='accounting';
       await settle(undefined,rejected);
       stage='provider';
-      const retryAfter=Math.min(86400,Math.max(1,Number(provider.headers.get('retry-after'))||60));
-      return json({error:provider.status===429?'Groq rate limit reached. The application reservation was refunded. Retry after '+retryAfter+' seconds.':rejected?'Groq rejected the request; the application reservation was refunded.':'Groq is temporarily unavailable. Its usage is uncertain, so the conservative reservation is retained.',code:provider.status===429?'provider_rate_limit':rejected?'provider_rejected':'provider_unavailable',retryAfter},provider.status===429?429:502,allowed);
+      const retryAfter=providerRetry(provider);
+      if(provider.status===429||provider.status>=500)await budget.fetch(new Request('https://budget/cooldown',{method:'POST',body:JSON.stringify({client,id:reservationId,retryAfter,reason:provider.status===429?'provider_rate_limit':'provider_cooldown'})}));
+      return json({error:provider.status===429?'Groq rate limit reached. The application reservation was refunded. Retry after '+retryAfter+' seconds.':provider.status===401?'Groq credentials were rejected. Configure a valid primary or backup secret; the application reservation was refunded.':provider.status===403?'Groq denied access to this model; check model permissions. The application reservation was refunded.':rejected?'Groq rejected this request; the application reservation was refunded.':'Groq is temporarily unavailable. Its usage is uncertain, so the conservative reservation is retained.',code:provider.status===429?'provider_rate_limit':provider.status===401?'provider_authentication':provider.status===403?'provider_permission':rejected?'provider_rejected':'provider_unavailable',retryAfter},provider.status===429?429:502,allowed);
     }
     stage='output';
     const data = (await provider.json()) as {
@@ -250,6 +260,9 @@ export async function handleAPI(
     }
     const analysed=validateAnalysis(plan.data,payload.blocks,payload.instruction);
     const response=json(analysed, 200, allowed);
+    response.headers.set('X-AI-Credential',credential);
+    response.headers.set('X-AI-Limits',JSON.stringify(budgetConfig(env)));
+    response.headers.set('X-AI-Reset',new Date(Date.parse(day+'T00:00:00Z')+86400000).toISOString());
     response.headers.set('X-AI-Remaining-Requests',String(quota.remaining ?? 'unknown'));
     if(quota.requests!==undefined)response.headers.set('X-AI-Global-Requests-Used',String(quota.requests));
     if(quota.tokens!==undefined)response.headers.set('X-AI-Global-Tokens-Used',String(quota.tokens));

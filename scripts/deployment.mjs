@@ -84,14 +84,17 @@ export async function provisionSecrets(env, fetcher = fetch) {
   for (const name of ['GROQ_API_KEY', 'TURNSTILE_SECRET'])
     if (!env[name] || env[name].includes('\n'))
       throw new Error(`Repository secret ${name} is missing or invalid.`);
-  for (const name of ['GROQ_API_KEY', 'TURNSTILE_SECRET'])
+  const names=['GROQ_API_KEY','TURNSTILE_SECRET',...(env.GROQ_API_KEY_BACKUP?['GROQ_API_KEY_BACKUP']:[])];
+  if(env.GROQ_API_KEY_BACKUP?.includes('\n'))throw new Error('Backup repository secret is invalid.');
+  for (const name of names)
     await cfRequest(
       env,
       `/workers/scripts/${worker}/secrets`,
       { method: 'PUT', body: { name, type: 'secret_text', text: env[name] } },
       fetcher,
     );
-  return { provisioned: ['GROQ_API_KEY', 'TURNSTILE_SECRET'] };
+  console.log('Backup credential '+(env.GROQ_API_KEY_BACKUP?'provisioned':'absent; primary remains available')+'.');
+  return { provisioned: names };
 }
 async function verifyFree(env) {
   const items = [];

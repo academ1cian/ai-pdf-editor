@@ -1,6 +1,11 @@
-export interface BudgetConfig { dailyRequests:number; dailyTokens:number; perMinute:number; perDay:number; }
+export interface BudgetConfig { dailyRequests:number; dailyTokens:number; perMinute:number; perDay:number; networkDay?:number; networkMinute?:number; }
 export const DEFAULT_BUDGET:BudgetConfig={dailyRequests:80,dailyTokens:100000,perMinute:4,perDay:30};
+export function budgetConfig(env:Record<string,unknown>):BudgetConfig {
+  const number=(name:string,fallback:number,max:number)=>{const n=Number(env[name]);return Number.isInteger(n)&&n>0?Math.min(n,max):fallback;};
+  return {dailyRequests:number('AI_DAILY_REQUESTS',80,1000),dailyTokens:number('AI_DAILY_TOKENS',100000,180000),perMinute:number('AI_SESSION_MINUTE',4,10),perDay:number('AI_SESSION_DAY',30,200),networkDay:number('AI_NETWORK_DAY',60,500),networkMinute:number('AI_NETWORK_MINUTE',12,20)};
+}
 export interface Usage {
+  providerUntil?:number; providerReason?:string; seen?:Record<string,boolean>;
   day:string; requests:number; tokens:number;
   clients:Record<string,{minute:number;minuteRequests:number;requests:number}>;
   networks?:Record<string,{minute:number;minuteRequests:number;requests:number}>;
@@ -16,19 +21,21 @@ export function reserve(current:Usage|undefined,client:string,tokens:number,now:
   usage.networks ||= {}; usage.pending ||= {};
   const nat={...(usage.networks[network]||{minute,minuteRequests:0,requests:0})};
   if(nat.minute!==minute){nat.minute=minute;nat.minuteRequests=0;}
-  const deny=(reason:string,retryAfter:number)=>({allowed:false,usage,reason,retryAfter});
+  const deny=(reason:string,retryAfter:number)=>({allowed:false,usage,reason,retryAfter:Math.ceil(retryAfter)});
+  if((current?.providerUntil||0)>now)return deny(current?.providerReason||'provider_cooldown',((current!.providerUntil!)-now)/1000);
+  if(id!=='legacy'&&(usage.pending[id]||usage.seen?.[id]))return deny('duplicate_reservation',60);
   if(!Number.isSafeInteger(tokens)||tokens<1) return deny('invalid_reservation',60);
   if(usage.requests>=config.dailyRequests || usage.tokens+tokens>config.dailyTokens) return deny('global_daily',dailyRetry);
   if(item.requests>=config.perDay) return deny('session_daily',dailyRetry);
   if(item.minuteRequests>=config.perMinute) return deny('session_minute',60-now/1000%60);
   // Shared corporate networks get an aggregate allowance, rather than six requests for everybody.
-  if(nat.requests>=60) return deny('network_daily',dailyRetry);
-  if(nat.minuteRequests>=12) return deny('network_minute',60-now/1000%60);
+  if(nat.requests>=(config.networkDay??60)) return deny('network_daily',dailyRetry);
+  if(nat.minuteRequests>=(config.networkMinute??12)) return deny('network_minute',60-now/1000%60);
   if(id!=='legacy'&&usage.pending[id]) return deny('duplicate_reservation',60);
   item.requests++; item.minuteRequests++; nat.requests++; nat.minuteRequests++;
   usage.requests++; usage.tokens+=tokens;
   usage.clients[client]=item;usage.networks[network]=nat;
-  if(id!=='legacy')usage.pending[id]={client,network,tokens};
+  if(id!=='legacy'){usage.pending[id]={client,network,tokens};(usage.seen||={})[id]=true;}
   return {allowed:true,usage,remaining:Math.min(config.perDay-item.requests,config.dailyRequests-usage.requests)};
 }
 export function reconcile(current:Usage,id:string,actual:number|undefined,rejected=false):Usage {

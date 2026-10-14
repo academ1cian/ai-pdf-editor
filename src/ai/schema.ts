@@ -38,6 +38,8 @@ export const AIRequestSchema = z
       .max(50),
     turnstileToken: z.string().max(2048),
     sessionId: z.string().uuid().optional(),
+    requestId:z.string().uuid().optional(),
+    pending:z.array(z.object({original:z.string().max(500),replacement:z.string().max(2000),page:z.number().int().min(1).max(80)}).strict()).max(40).optional(),
   })
   .strict()
   .superRefine((value, ctx) => {

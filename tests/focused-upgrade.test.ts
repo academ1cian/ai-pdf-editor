@@ -19,10 +19,10 @@ describe('focused usability and intelligence regressions',()=>{
       const found=findTargets(result.model,edit.replacement).find(t=>Math.abs(t.rect[2]-edit.target.rect[2])<.15);
       expect(found).toBeDefined();
     }
-    const pdf=await getDocument({data:result.bytes.slice(),useSystemFonts:true}).promise;
+    const task=getDocument({data:result.bytes.slice(),useSystemFonts:true}); const pdf=await task.promise;
     const text=(await(await pdf.getPage(1)).getTextContent()).items.filter(i=>'str'in i).map(i=>('str'in i?i.str:'')).join(' ');
     expect(text).toContain('1090.00');expect(text).not.toContain('1205.00');expect(text).toContain('Payment terms: 30 days. Preserve this text.');
-    await pdf.destroy();
+    await task.destroy();
     const h=new History(source);h.commit(result.bytes);expect(h.undo()).toEqual(source);
   });
   it('B: marginal overflow expands measured whitespace, and bounded type adjustment is explicit',async()=>{

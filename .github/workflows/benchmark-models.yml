@@ -1,0 +1,32 @@
+name: Focused free model benchmark
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['scripts/benchmark-models.ts', '.github/workflows/benchmark-models.yml']
+permissions:
+  contents: read
+jobs:
+  benchmark:
+    if: ${{ vars.CF_FREE_PLAN_CONFIRMED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm fixtures
+      - name: Compare six synthetic proposals within free quotas
+        run: pnpm exec tsx scripts/benchmark-models.ts
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          CF_FREE_PLAN_CONFIRMED: ${{ vars.CF_FREE_PLAN_CONFIRMED }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: focused-model-benchmark
+          path: tests/evidence/model-benchmark.json
+          retention-days: 3

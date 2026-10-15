@@ -105,11 +105,20 @@ function latin(bytes: Uint8Array): string {
     s += String.fromCharCode(...bytes.subarray(i, i + 8192));
   return s;
 }
+const hexString = (value: string) =>
+  '<' + Array.from(value, (c) => c.charCodeAt(0).toString(16).padStart(2, '0')).join('') + '>';
 export interface OperandPatch {
   stream: number;
   start: number;
   end: number;
   replacement: string;
+  removal?: {
+    value: string;
+    operator: string;
+    offset: number;
+    length: number;
+    advance: number;
+  };
 }
 export interface OperandPlan {
   sources: string[];
@@ -195,7 +204,18 @@ export function planOperands(
               ? args.filter((t) => t.kind === 'string')
               : args.slice(-1).filter((t) => t.kind === 'string');
           for (const str of strings)
-            if (str.value === op.target.original) {
+            if (
+              str.value === op.target.original ||
+              (remove &&
+                op.target.original.length > 0 &&
+                !/^[$£€]?-?\d[\d,.]*$/.test(op.target.original) &&
+                /^[\x20-\x7e]+$/.test(str.value) &&
+                str.value.includes(op.target.original))
+            ) {
+              const offset = str.value.indexOf(op.target.original);
+              // A partial removal is safe only with one unambiguous byte sequence
+              // in a standard single-byte font. Never pick the first occurrence.
+              if (offset !== str.value.lastIndexOf(op.target.original)) return;
               const font = fonts.get(fontKey),
                 base = font.get('BaseFont'),
                 descriptor = font.get('FontDescriptor'),
@@ -250,7 +270,7 @@ export function planOperands(
                   if (!(fontSize > 0)) return;
                   const metrics = new mupdf.Font(base.asName());
                   try {
-                    for (const c of str.value)
+                    for (const c of op.target.original)
                       advance +=
                         metrics.advanceGlyph(metrics.encodeCharacter(c)) * 1000 +
                         ((charSpace + (c === ' ' ? wordSpace : 0)) / fontSize) * 1000;
@@ -258,19 +278,27 @@ export function planOperands(
                     metrics.destroy();
                   }
                 }
+                const removed = remove
+                  ? `${hexString(str.value.slice(0, offset))} ${-advance} ${hexString(str.value.slice(offset + op.target.original.length))}`
+                  : '';
                 candidates.push({
                   stream,
                   start: str.start,
                   end: remove && token.value === 'Tj' ? token.end : str.end,
                   replacement: remove
                     ? token.value === 'Tj'
-                      ? `[] TJ [${-advance}] TJ`
-                      : ` ${-advance} `
-                    : '<' +
-                      Array.from(op.replacement, (c) =>
-                        c.charCodeAt(0).toString(16).padStart(2, '0'),
-                      ).join('') +
-                      '>',
+                      ? `[${removed}] TJ`
+                      : ` ${removed} `
+                    : hexString(op.replacement),
+                  removal: remove
+                    ? {
+                        value: str.value,
+                        operator: token.value,
+                        offset,
+                        length: op.target.original.length,
+                        advance,
+                      }
+                    : undefined,
                 });
               } finally {
                 font.destroy();
@@ -286,7 +314,8 @@ export function planOperands(
         args = [];
       }
     }
-    // Exact complete operand, never substring/first-match. Ambiguous occurrences fall back.
+    // Numeric substitution still requires the complete operand. Reconstruction
+    // may remove one unique ASCII range, retaining prefix/suffix and text advance.
     if (candidates.length !== 1) return;
     return { sources, patches: candidates };
   } catch {
@@ -303,7 +332,34 @@ export function planOperands(
 
 export function applyOperands(doc: mupdf.PDFDocument, pageIndex: number, plans: OperandPlan[]) {
   const sources = plans[0].sources,
-    patches = plans.flatMap((p) => p.patches);
+    groups = new Map<string, OperandPatch[]>();
+  for (const patch of plans.flatMap((p) => p.patches)) {
+    const key = `${patch.stream}:${patch.start}:${patch.end}`;
+    groups.set(key, [...(groups.get(key) || []), patch]);
+  }
+  const patches = [...groups.values()].map((group) => {
+    if (group.length === 1) return group[0];
+    const first = group[0].removal;
+    if (
+      !first ||
+      group.some(
+        (p) =>
+          !p.removal || p.removal.value !== first.value || p.removal.operator !== first.operator,
+      )
+    )
+      throw new Error('Conflicting content operands.');
+    let cursor = 0;
+    const parts: string[] = [];
+    for (const { removal } of group.sort((a, b) => a.removal!.offset - b.removal!.offset)) {
+      if (removal!.offset < cursor) throw new Error('Conflicting content operands.');
+      parts.push(hexString(first.value.slice(cursor, removal!.offset)), String(-removal!.advance));
+      cursor = removal!.offset + removal!.length;
+    }
+    parts.push(hexString(first.value.slice(cursor)));
+    const replacement =
+      first.operator === 'Tj' ? `[${parts.join(' ')}] TJ` : ` ${parts.join(' ')} `;
+    return { ...group[0], replacement };
+  });
   const page = doc.loadPage(pageIndex),
     obj = page.getObject(),
     contents = obj.get('Contents'),

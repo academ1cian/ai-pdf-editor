@@ -30,10 +30,8 @@ export function localInvoicePlan(blocks: ContextBlock[], instruction: string): A
     rate,
     charges: [charge],
   } = candidates[0];
-  const totals = blocks.filter((b) => b.page === charge.page && b.field?.type === 'total');
-  const sources = blocks.filter(
-    (b) => b.page === charge.page && ['charge', 'fee'].includes(b.field?.type || ''),
-  );
+  const totals = blocks.filter((b) => b.field?.type === 'total');
+  const sources = blocks.filter((b) => ['charge', 'fee'].includes(b.field?.type || ''));
   if (totals.length !== 1 || !sources.length || !blocks.every((b) => b.complete))
     return clarify(
       'The payable total and all its line charges could not be established. No changes were made.',

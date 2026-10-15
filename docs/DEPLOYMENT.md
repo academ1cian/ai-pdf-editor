@@ -57,9 +57,9 @@ Automated API mocks and fake CAPTCHA tokens are not live integration evidence. A
 
 ## Abuse protection and free limits
 
-Global maximum: 40 requests / 50,000 conservatively reserved tokens per UTC day. Per client: 2/minute, 6/day. Failed upstream requests consume reservations. Budget storage is transactional, strongly consistent SQLite Durable Object storage; unavailable storage fails closed. Stored counters contain salted day-scoped client hashes and counts, no PDF text/raw IPs.
+The current authenticated owner-testing deployment uses `AI_APP_LIMITS_ENABLED=false`: no application quota store, reservation, estimate gate or artificial cooldown can block requests. When explicitly re-enabled with `true`, the configurable defaults are 80 requests / 100,000 tokens per UTC day, 30/day and 4/minute per browser session, 60/day and 12/minute per shared network, and a 7,500-token rolling window. Confirmed provider rejections refund billable reservations. Counters retain no PDF text/raw IPs; disabled mode leaves them untouched.
 
-Groq's documented Free allowance for `openai/gpt-oss-20b` on 2026-10-14: 30 RPM, 1,000 RPD, 8,000 TPM, 200,000 TPD, subject to account exceptions. This app's budget is smaller, but cannot control other applications sharing the organization quota. Provider rate limits remain authoritative. Strict structured outputs are required; no obsolete-model fallback is silently attempted.
+Groq's documented Free allowance for `openai/gpt-oss-20b` on 2026-10-14: 30 RPM, 1,000 RPD, 8,000 TPM, 200,000 TPD, subject to account exceptions. Application quota settings cannot control other applications sharing the organization quota. Provider rate limits remain authoritative. Strict structured outputs are required; no obsolete-model fallback is silently attempted.
 
 Cloudflare Pages Free documents 500 builds/month and 25 MiB per asset. MuPDF's WASM asset is approximately 10.4 MB uncompressed. Workers Free supports SQLite Durable Objects and fails requests beyond free limits. The project uses no paid-only storage, custom domain, purchased service or billing write operation.
 
@@ -74,3 +74,7 @@ Reviewed 2026-10-14: [Pages CI deployment](https://developers.cloudflare.com/pag
 ## Public revision verification
 
 A metadata-only update exposed stale responses for the stable `/version.json` path even while Cloudflare's production assignment and immutable deployment URL were correct. The release gate now binds readiness to the built client entry in public root HTML and asserts the compiled `data-build-commit` in a real, fresh production browser session. The manifest remains useful artifact metadata; it receives `Cache-Control: no-store`, and root HTML receives `no-cache`. Public functional smoke tests and the free-plan gate remain mandatory.
+
+## Owner testing mode
+
+`AI_APP_LIMITS_ENABLED` is passed from GitHub repository variables to the Worker. Set it to `false` for authenticated owner testing, or `true` to restore application quotas. `AI_OWNER_PUBLIC_KEY` optionally overrides the checked-in public key. Never configure a private key in GitHub or Cloudflare; it stays on the owner device. Disabled mode fails closed for anonymous provider requests. See [OWNER-TESTING.md](OWNER-TESTING.md) for login, retry behavior and the local key-file location.

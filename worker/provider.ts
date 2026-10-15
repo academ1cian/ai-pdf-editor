@@ -23,7 +23,7 @@ export function providerRetry(response: Response): number {
       const reset = duration(response.headers.get('x-ratelimit-reset-' + kind));
       if (reset !== undefined) waits.push(reset);
     }
-  return Math.ceil(Math.min(86400, Math.max(1, retry ?? (waits.length ? Math.max(...waits) : 60))));
+  return Math.ceil(Math.max(0, retry ?? (waits.length ? Math.max(...waits) : 60)));
 }
 export async function requestGroq(env: Credentials, body: string, fetcher: typeof fetch) {
   const send = (key: string) =>

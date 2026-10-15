@@ -177,6 +177,18 @@ async function main() {
       ALLOWED_ORIGIN: origin,
       TURNSTILE_SITE_KEY: env.TURNSTILE_SITE_KEY,
     };
+    if (env.AI_APP_LIMITS_ENABLED && !['true', 'false'].includes(env.AI_APP_LIMITS_ENABLED))
+      throw new Error('AI_APP_LIMITS_ENABLED must be true or false.');
+    config.vars.AI_APP_LIMITS_ENABLED =
+      env.AI_APP_LIMITS_ENABLED || config.vars.AI_APP_LIMITS_ENABLED || 'true';
+    if (env.AI_OWNER_PUBLIC_KEY) config.vars.AI_OWNER_PUBLIC_KEY = env.AI_OWNER_PUBLIC_KEY;
+    if (config.vars.AI_APP_LIMITS_ENABLED === 'false') {
+      const owner = JSON.parse(config.vars.AI_OWNER_PUBLIC_KEY || 'null');
+      if (!owner || owner.kty !== 'EC' || owner.crv !== 'P-256' || !owner.x || !owner.y || owner.d)
+        throw new Error(
+          'Unrestricted mode requires an owner public key; private keys must never enter deployment.',
+        );
+    }
     for (const name of [
       'AI_DAILY_REQUESTS',
       'AI_DAILY_TOKENS',

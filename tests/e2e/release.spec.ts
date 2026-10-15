@@ -181,8 +181,11 @@ test('rate-limited cloud followup preserves valid draft and still permits approv
       exact: true,
     })
     .check();
-  await request(page, 'Please improve the introductory sentence.');
-  await expect(page.getByRole('alert')).toContainText('Retry after 95 seconds');
+  await page.locator('#instruction').fill('Please improve the introductory sentence.');
+  await page.getByRole('button', { name: 'Update preview', exact: true }).click();
+  await expect(page.getByLabel('AI retry status')).toContainText('95-second delay');
+  await page.getByRole('button', { name: 'Cancel AI request', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('request cancelled');
   await expect(page.locator('.app')).toHaveAttribute('data-preview-sha256', hash!);
   await approve(page, info.outputPath('quota-preserved.pdf'));
   expect(requests).toBe(1);

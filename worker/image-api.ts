@@ -1,3 +1,4 @@
+import { appLimitsEnabled, ownerAuthorized } from './owner';
 import type { AIEnv } from './api';
 export const IMAGE_MODEL = '@cf/black-forest-labs/flux-2-klein-4b';
 export const IMAGE_BUDGET = {
@@ -13,7 +14,7 @@ export function imageEnabled(env: AIEnv) {
     env.ENABLE_IMAGE_AI === 'true' &&
     env.IMAGE_AI_FREE_VERIFIED === 'true' &&
     !!env.AI &&
-    !!env.BUDGET &&
+    (!appLimitsEnabled(env) || !!env.BUDGET) &&
     !!env.TURNSTILE_SECRET &&
     !!env.TURNSTILE_SITE_KEY &&
     !!env.ALLOWED_ORIGIN
@@ -73,6 +74,14 @@ export async function handleImage(
       },
     });
   if (request.method !== 'POST') return json({ error: 'Use POST for image editing.' }, 405);
+  if (!appLimitsEnabled(env) && !(await ownerAuthorized(request, env)))
+    return json(
+      {
+        error: 'Sign in with your owner key to use unrestricted image AI.',
+        code: 'owner_required',
+      },
+      401,
+    );
   if (!imageEnabled(env))
     return json(
       {
@@ -148,60 +157,71 @@ export async function handleImage(
       verified.action !== 'pdf-plan'
     )
       return json({ error: 'Please complete verification again.', code: 'turnstile_failed' }, 403);
-    const day = new Date().toISOString().slice(0, 10),
-      hash = async (s: string) =>
-        Array.from(
-          new Uint8Array(
-            await crypto.subtle.digest(
-              'SHA-256',
-              new TextEncoder().encode(day + ':image:' + s + ':' + env.TURNSTILE_SECRET),
+    let settleImage: () => Promise<void> = async () => {};
+    if (appLimitsEnabled(env)) {
+      const day = new Date().toISOString().slice(0, 10),
+        hash = async (s: string) =>
+          Array.from(
+            new Uint8Array(
+              await crypto.subtle.digest(
+                'SHA-256',
+                new TextEncoder().encode(day + ':image:' + s + ':' + env.TURNSTILE_SECRET),
+              ),
             ),
-          ),
-        )
-          .map((n) => n.toString(16).padStart(2, '0'))
-          .join('');
-    const client = await hash(payload.sessionId),
-      network = await hash(ip),
-      id = client.slice(0, 24) + ':' + payload.requestId;
-    const budget = env.BUDGET!.get(env.BUDGET!.idFromName('global-workers-ai-image-budget'));
-    stage = 'accounting';
-    const reservation = await budget.fetch(
-      new Request('https://budget/reserve', {
-        method: 'POST',
-        body: JSON.stringify({ client, network, id, tokens: 1, kind: 'image' }),
-      }),
-    );
-    const usage = (await reservation.json()) as { reason?: string; retryAfter?: number };
-    if (!reservation.ok)
-      return json(
-        {
-          error:
-            'The separate image allowance is temporarily unavailable. Local logo and upload tools still work. Daily limits reset at midnight UTC.',
-          code: 'image_' + (usage.reason || 'budget'),
-          retryAfter: usage.retryAfter || 60,
-        },
-        429,
-      );
-    rejectProvider = async (retryAfter) => {
-      await budget.fetch(
-        new Request('https://budget/reconcile', {
+          )
+            .map((n) => n.toString(16).padStart(2, '0'))
+            .join('');
+      const client = await hash(payload.sessionId),
+        network = await hash(ip),
+        id = client.slice(0, 24) + ':' + payload.requestId;
+      const budget = env.BUDGET!.get(env.BUDGET!.idFromName('global-workers-ai-image-budget'));
+      stage = 'accounting';
+      const reservation = await budget.fetch(
+        new Request('https://budget/reserve', {
           method: 'POST',
-          body: JSON.stringify({ client, id, rejected: true, kind: 'image' }),
+          body: JSON.stringify({ client, network, id, tokens: 1, kind: 'image' }),
         }),
       );
-      await budget.fetch(
-        new Request('https://budget/cooldown', {
-          method: 'POST',
-          body: JSON.stringify({
-            client,
-            id,
-            retryAfter,
-            reason: 'provider_rate_limit',
-            kind: 'image',
+      const usage = (await reservation.json()) as { reason?: string; retryAfter?: number };
+      if (!reservation.ok)
+        return json(
+          {
+            error:
+              'The separate image allowance is temporarily unavailable. Local logo and upload tools still work. Daily limits reset at midnight UTC.',
+            code: 'image_' + (usage.reason || 'budget'),
+            retryAfter: usage.retryAfter || 60,
+          },
+          429,
+        );
+      rejectProvider = async (retryAfter) => {
+        await budget.fetch(
+          new Request('https://budget/reconcile', {
+            method: 'POST',
+            body: JSON.stringify({ client, id, rejected: true, kind: 'image' }),
           }),
-        }),
-      );
-    };
+        );
+        await budget.fetch(
+          new Request('https://budget/cooldown', {
+            method: 'POST',
+            body: JSON.stringify({
+              client,
+              id,
+              retryAfter,
+              reason: 'provider_rate_limit',
+              kind: 'image',
+            }),
+          }),
+        );
+      };
+      settleImage = async () => {
+        await budget.fetch(
+          new Request('https://budget/reconcile', {
+            method: 'POST',
+            body: JSON.stringify({ client, id, actual: 1, kind: 'image' }),
+          }),
+        );
+      };
+    }
     stage = 'provider';
     // No automatic retries, paid model fallback, AI Gateway credits, or top-ups.
     let timeout: ReturnType<typeof setTimeout> | undefined;
@@ -231,17 +251,13 @@ export async function handleImage(
         502,
       );
     stage = 'accounting';
-    await budget.fetch(
-      new Request('https://budget/reconcile', {
-        method: 'POST',
-        body: JSON.stringify({ client, id, actual: 1, kind: 'image' }),
-      }),
-    );
+    await settleImage();
     return json({
       image: result.image,
       model: IMAGE_MODEL,
-      usage:
-        'Separate application allowance: 8 images/day shared, 2/session/day. Cloudflare free Neuron allocation is account-wide and resets at midnight UTC.',
+      usage: appLimitsEnabled(env)
+        ? 'Separate application allowance: 8 images/day shared, 2/session/day. Cloudflare free Neuron allocation is account-wide and resets at midnight UTC.'
+        : 'Application quotas disabled for authenticated owner testing. Actual Cloudflare free allocation still applies.',
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : '';
@@ -288,7 +304,7 @@ export async function handleImage(
             ? 'Image verification could not be reached.'
             : stage === 'accounting'
               ? 'Image usage accounting is temporarily unavailable.'
-              : 'Workers AI image editing is unavailable or timed out. Your previous preview is preserved; use upload or exact local wording. The attempted request remains counted because provider usage is uncertain.',
+              : 'Workers AI image editing is unavailable or timed out. Your previous preview is preserved; use upload or exact local wording. Provider usage may be uncertain.',
         code: 'image_' + stage + '_unavailable',
       },
       502,

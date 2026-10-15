@@ -1,3 +1,4 @@
+import { appLimitsEnabled, ownerAuthorized, handleOwner } from './owner';
 import { handleImage, imageEnabled } from './image-api';
 import { requestGroq, providerRetry } from './provider';
 import { budgetConfig } from './budget';
@@ -34,7 +35,7 @@ function enabled(env: AIEnv): boolean {
     !!env.TURNSTILE_SECRET &&
     !!env.TURNSTILE_SITE_KEY &&
     !!env.ALLOWED_ORIGIN &&
-    !!env.BUDGET &&
+    (!appLimitsEnabled(env) || !!env.BUDGET) &&
     MODELS.has(env.GROQ_MODEL || 'openai/gpt-oss-120b')
   );
 }
@@ -90,12 +91,16 @@ export async function handleAPI(
   const path = new URL(request.url).pathname;
   const origin = request.headers.get('Origin');
   const allowed = env.ALLOWED_ORIGIN;
+  if (path.startsWith('/api/owner/')) return handleOwner(request, env);
   if (path === '/api/config' && request.method === 'GET')
     return json({
+      appLimitsEnabled: appLimitsEnabled(env),
+      ownerRequired: !appLimitsEnabled(env),
+      ownerAuthenticated: await ownerAuthorized(request, env),
       enabled: enabled(env),
       imageEnabled: imageEnabled(env),
       backupConfigured: !!env.GROQ_API_KEY_BACKUP,
-      limits: budgetConfig(env),
+      limits: appLimitsEnabled(env) ? budgetConfig(env) : null,
       ...(enabled(env) || imageEnabled(env)
         ? { siteKey: env.TURNSTILE_SITE_KEY }
         : {
@@ -117,6 +122,13 @@ export async function handleAPI(
       },
     });
   if (request.method !== 'POST') return error('Use POST for edit proposals.', 405, allowed);
+  if (!appLimitsEnabled(env) && !(await ownerAuthorized(request, env)))
+    return error(
+      'Sign in with your owner key to use unrestricted AI testing. Local editing remains available.',
+      401,
+      allowed,
+      'owner_required',
+    );
   if (!enabled(env))
     return error('AI is unavailable. You can still use manual editing.', 503, allowed);
   if (!request.headers.get('Content-Type')?.startsWith('application/json'))
@@ -179,116 +191,120 @@ export async function handleAPI(
       type: 'json_schema',
       json_schema: { name: 'pdf_edit_plan', strict: true, schema: planJSONSchema },
     };
-    // A practical estimate is reconciled with provider usage. The bounded estimate stays reserved on uncertain failures.
-    const byteCount = new TextEncoder().encode(
-      JSON.stringify({ messages, response_format: responseFormat }),
-    ).length;
-    const estimatedTokens = Math.ceil(byteCount / 3.5) + 2000;
-    const reservedTokens = estimatedTokens;
-    if (estimatedTokens > 7500)
-      return error(
-        'Select a smaller document region or shorten the instruction. Context exceeds the free model’s per-minute allowance.',
-        413,
-        allowed,
-      );
-    // Hash identifiers before storage. No document text or raw IP is stored.
+    // Disabled mode never reads, reserves or reconciles historical application counters.
     const day = new Date().toISOString().slice(0, 10);
-    const networkHash = await crypto.subtle.digest(
-      'SHA-256',
-      new TextEncoder().encode(`${day}:${ip}:${env.TURNSTILE_SECRET}`),
-    );
-    const network = Array.from(new Uint8Array(networkHash))
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('');
-    const sessionHash = await crypto.subtle.digest(
-      'SHA-256',
-      new TextEncoder().encode(day + ':' + (payload.sessionId || ip) + ':' + env.TURNSTILE_SECRET),
-    );
-    const client = Array.from(new Uint8Array(sessionHash))
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('');
-    const reservationId = client.slice(0, 24) + ':' + (payload.requestId || crypto.randomUUID());
-    const budget = env.BUDGET!.get(env.BUDGET!.idFromName('global-groq-free-budget'));
-    stage = 'accounting';
-    const reservation = await budget.fetch(
-      new Request('https://budget/reserve', {
-        method: 'POST',
-        body: JSON.stringify({ client, network, id: reservationId, tokens: reservedTokens }),
-      }),
-    );
-    const quota = (await reservation.json().catch(() => ({}))) as {
+    let quota: {
       reason?: string;
       retryAfter?: number;
       remaining?: number;
       requests?: number;
       tokens?: number;
-    };
-    if (!reservation.ok) {
-      const messages: Record<string, string> = {
-        global_minute:
-          'The application is pacing requests within Groq’s free per-minute token capacity. Wait for the indicated retry time; manual editing and your existing preview remain available.',
-        provider_authentication:
-          'Groq credentials were rejected. Calls are paused briefly; configure a valid primary or standby credential.',
-        provider_permission:
-          'Groq denied model access. Calls are paused briefly; check model permissions.',
-        global_attempts:
-          'The application’s daily request-attempt safety allowance is reached. It resets at midnight UTC.',
-        global_daily:
-          'The application’s shared daily AI allowance is reached. It resets at midnight UTC.',
-        session_daily: 'This browser session reached its daily application AI allowance.',
-        session_minute: 'Too many requests in this session. Wait until the next minute.',
-        network_daily: 'This shared network reached its daily application AI allowance.',
-        provider_rate_limit:
-          'Groq is cooling down after a provider rate limit. The backup key shares organization quotas and is not used to bypass limits.',
-        provider_cooldown:
-          'Groq is temporarily unavailable. A short cooldown prevents repeated failed requests.',
-        duplicate_reservation:
-          'This request was already submitted. Its last valid preview remains available.',
-        network_minute: 'This shared network is sending requests too quickly.',
-      };
-      return json(
-        {
-          error:
-            messages[quota.reason || ''] || 'Application AI capacity is temporarily unavailable.',
-          code: quota.reason || 'app_limit',
-          retryAfter: Math.ceil(quota.retryAfter || 60),
-        },
-        ['provider_authentication', 'provider_permission'].includes(quota.reason || '')
-          ? 503
-          : quota.reason === 'duplicate_reservation'
-            ? 409
-            : 429,
-        allowed,
+    } = {};
+    let settle: (actual?: number, rejected?: boolean) => Promise<void> = async () => {};
+    let providerCooldown: (delay: number, reason: string) => Promise<void> = async () => {};
+    if (appLimitsEnabled(env)) {
+      // A practical estimate is reconciled with provider usage. The bounded estimate stays reserved on uncertain failures.
+      const byteCount = new TextEncoder().encode(
+        JSON.stringify({ messages, response_format: responseFormat }),
+      ).length;
+      const estimatedTokens = Math.ceil(byteCount / 3.5) + 2000;
+      const reservedTokens = estimatedTokens;
+      if (estimatedTokens > 7500)
+        return error(
+          'Select a smaller document region or shorten the instruction. Context exceeds the free model’s per-minute allowance.',
+          413,
+          allowed,
+        );
+      // Hash identifiers before storage. No document text or raw IP is stored.
+      const networkHash = await crypto.subtle.digest(
+        'SHA-256',
+        new TextEncoder().encode(`${day}:${ip}:${env.TURNSTILE_SECRET}`),
       );
-    }
-    const settle = async (actual?: number, rejected = false) => {
-      const r = await budget.fetch(
-        new Request('https://budget/reconcile', {
+      const network = Array.from(new Uint8Array(networkHash))
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+      const sessionHash = await crypto.subtle.digest(
+        'SHA-256',
+        new TextEncoder().encode(
+          day + ':' + (payload.sessionId || ip) + ':' + env.TURNSTILE_SECRET,
+        ),
+      );
+      const client = Array.from(new Uint8Array(sessionHash))
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+      const reservationId = client.slice(0, 24) + ':' + (payload.requestId || crypto.randomUUID());
+      const budget = env.BUDGET!.get(env.BUDGET!.idFromName('global-groq-free-budget'));
+      stage = 'accounting';
+      const reservation = await budget.fetch(
+        new Request('https://budget/reserve', {
           method: 'POST',
-          body: JSON.stringify({ client, network, id: reservationId, actual, rejected }),
+          body: JSON.stringify({ client, network, id: reservationId, tokens: reservedTokens }),
         }),
       );
-      if (!r.ok) throw new Error('Budget reconciliation unavailable.');
-      const accounted = (await r.json().catch(() => ({}))) as {
-        requests?: number;
-        tokens?: number;
-      };
-      if (accounted.requests !== undefined) quota.requests = accounted.requests;
-      if (accounted.tokens !== undefined) quota.tokens = accounted.tokens;
-    };
-    providerBackoff = async () => {
-      await budget.fetch(
-        new Request('https://budget/cooldown', {
-          method: 'POST',
-          body: JSON.stringify({
-            client,
-            id: reservationId,
-            retryAfter: 30,
-            reason: 'provider_cooldown',
+      quota = (await reservation.json().catch(() => ({}))) as typeof quota;
+      if (!reservation.ok) {
+        const messages: Record<string, string> = {
+          global_minute:
+            'The application is pacing requests within Groq’s free per-minute token capacity. Wait for the indicated retry time; manual editing and your existing preview remain available.',
+          provider_authentication:
+            'Groq credentials were rejected. Calls are paused briefly; configure a valid primary or standby credential.',
+          provider_permission:
+            'Groq denied model access. Calls are paused briefly; check model permissions.',
+          global_attempts:
+            'The application’s daily request-attempt safety allowance is reached. It resets at midnight UTC.',
+          global_daily:
+            'The application’s shared daily AI allowance is reached. It resets at midnight UTC.',
+          session_daily: 'This browser session reached its daily application AI allowance.',
+          session_minute: 'Too many requests in this session. Wait until the next minute.',
+          network_daily: 'This shared network reached its daily application AI allowance.',
+          provider_rate_limit:
+            'Groq is cooling down after a provider rate limit. The backup key shares organization quotas and is not used to bypass limits.',
+          provider_cooldown:
+            'Groq is temporarily unavailable. A short cooldown prevents repeated failed requests.',
+          duplicate_reservation:
+            'This request was already submitted. Its last valid preview remains available.',
+          network_minute: 'This shared network is sending requests too quickly.',
+        };
+        return json(
+          {
+            error:
+              messages[quota.reason || ''] || 'Application AI capacity is temporarily unavailable.',
+            code: quota.reason || 'app_limit',
+            retryAfter: Math.ceil(quota.retryAfter || 60),
+          },
+          ['provider_authentication', 'provider_permission'].includes(quota.reason || '')
+            ? 503
+            : quota.reason === 'duplicate_reservation'
+              ? 409
+              : 429,
+          allowed,
+        );
+      }
+      settle = async (actual?: number, rejected = false) => {
+        const r = await budget.fetch(
+          new Request('https://budget/reconcile', {
+            method: 'POST',
+            body: JSON.stringify({ client, network, id: reservationId, actual, rejected }),
           }),
-        }),
-      );
-    };
+        );
+        if (!r.ok) throw new Error('Budget reconciliation unavailable.');
+        const accounted = (await r.json().catch(() => ({}))) as {
+          requests?: number;
+          tokens?: number;
+        };
+        if (accounted.requests !== undefined) quota.requests = accounted.requests;
+        if (accounted.tokens !== undefined) quota.tokens = accounted.tokens;
+      };
+      providerCooldown = async (retryAfter, reason) => {
+        await budget.fetch(
+          new Request('https://budget/cooldown', {
+            method: 'POST',
+            body: JSON.stringify({ client, id: reservationId, retryAfter, reason }),
+          }),
+        );
+      };
+      providerBackoff = () => providerCooldown(30, 'provider_cooldown');
+    }
     stage = 'provider';
     const { response: provider, credential } = await requestGroq(
       env,
@@ -311,38 +327,32 @@ export async function handleAPI(
       const retryAfter =
         provider.status === 401 || provider.status === 403 ? 300 : providerRetry(provider);
       if ([401, 403, 429].includes(provider.status) || provider.status >= 500)
-        await budget.fetch(
-          new Request('https://budget/cooldown', {
-            method: 'POST',
-            body: JSON.stringify({
-              client,
-              id: reservationId,
-              retryAfter,
-              reason:
-                provider.status === 401
-                  ? 'provider_authentication'
-                  : provider.status === 403
-                    ? 'provider_permission'
-                    : provider.status === 429
-                      ? 'provider_rate_limit'
-                      : 'provider_cooldown',
-            }),
-          }),
+        await providerCooldown(
+          retryAfter,
+          provider.status === 401
+            ? 'provider_authentication'
+            : provider.status === 403
+              ? 'provider_permission'
+              : provider.status === 429
+                ? 'provider_rate_limit'
+                : 'provider_cooldown',
         );
       return json(
         {
           error:
             provider.status === 429
-              ? 'Groq rate limit reached. The application reservation was refunded. Retry after ' +
+              ? 'Groq rate limit reached. ' +
+                (appLimitsEnabled(env) ? 'The application reservation was refunded. ' : '') +
+                'Retry after ' +
                 retryAfter +
                 ' seconds.'
               : provider.status === 401
-                ? 'Groq credentials were rejected. Configure a valid primary or backup secret; the application reservation was refunded.'
+                ? 'Groq credentials were rejected. Configure a valid primary or backup secret.'
                 : provider.status === 403
-                  ? 'Groq denied access to this model; check model permissions. The application reservation was refunded.'
+                  ? 'Groq denied access to this model; check model permissions.'
                   : rejected
-                    ? 'Groq rejected this request; the application reservation was refunded.'
-                    : 'Groq is temporarily unavailable. Its usage is uncertain, so the conservative reservation is retained.',
+                    ? 'Groq rejected this request.'
+                    : 'Groq is temporarily unavailable.',
           code:
             provider.status === 429
               ? 'provider_rate_limit'
@@ -408,20 +418,27 @@ export async function handleAPI(
     const analysed = validateAnalysis(plan.data, payload.blocks, payload.instruction);
     const response = json(analysed, 200, allowed);
     response.headers.set('X-AI-Credential', credential);
-    response.headers.set('X-AI-Limits', JSON.stringify(budgetConfig(env)));
-    response.headers.set(
-      'X-AI-Reset',
-      new Date(Date.parse(day + 'T00:00:00Z') + 86400000).toISOString(),
-    );
-    response.headers.set('X-AI-Remaining-Requests', String(quota.remaining ?? 'unknown'));
-    if (quota.requests !== undefined)
-      response.headers.set('X-AI-Global-Requests-Used', String(quota.requests));
-    if (quota.tokens !== undefined)
-      response.headers.set('X-AI-Global-Tokens-Used', String(quota.tokens));
-    response.headers.set(
-      'X-AI-Accounting',
-      'Actual provider usage reconciled; uncertain network failures retain their reservation.',
-    );
+    response.headers.set('X-AI-App-Limits-Enabled', String(appLimitsEnabled(env)));
+    if (appLimitsEnabled(env)) {
+      response.headers.set('X-AI-Limits', JSON.stringify(budgetConfig(env)));
+      response.headers.set(
+        'X-AI-Reset',
+        new Date(Date.parse(day + 'T00:00:00Z') + 86400000).toISOString(),
+      );
+      response.headers.set('X-AI-Remaining-Requests', String(quota.remaining ?? 'unknown'));
+      if (quota.requests !== undefined)
+        response.headers.set('X-AI-Global-Requests-Used', String(quota.requests));
+      if (quota.tokens !== undefined)
+        response.headers.set('X-AI-Global-Tokens-Used', String(quota.tokens));
+      response.headers.set(
+        'X-AI-Accounting',
+        'Actual provider usage reconciled; uncertain network failures retain their reservation.',
+      );
+    } else
+      response.headers.set(
+        'X-AI-Accounting',
+        'Application quotas disabled for authenticated owner testing; actual provider limits apply.',
+      );
     return response;
   } catch {
     if (stage === 'provider') await providerBackoff?.().catch(() => {});

@@ -74,6 +74,8 @@ jobs:
           CF_FREE_PLAN_CONFIRMED: ${{ vars.CF_FREE_PLAN_CONFIRMED }}
           CF_PAGES_PROJECT: ${{ vars.CF_PAGES_PROJECT }}
           TURNSTILE_SITE_KEY: ${{ vars.TURNSTILE_SITE_KEY }}
+          AI_APP_LIMITS_ENABLED: ${{ vars.AI_APP_LIMITS_ENABLED }}
+          AI_OWNER_PUBLIC_KEY: ${{ vars.AI_OWNER_PUBLIC_KEY }}
           AI_DAILY_REQUESTS: ${{ vars.AI_DAILY_REQUESTS }}
           AI_DAILY_TOKENS: ${{ vars.AI_DAILY_TOKENS }}
           AI_SESSION_DAY: ${{ vars.AI_SESSION_DAY }}

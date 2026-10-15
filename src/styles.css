@@ -1470,3 +1470,15 @@ textarea {
   border-color: #7c63a2;
   box-shadow: 0 0 0 2px #b69bc766;
 }
+
+.owner-access {
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f7faf6;
+}
+.owner-access input[type='file'] {
+  max-width: 100%;
+  margin: 8px 0;
+}

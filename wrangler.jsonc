@@ -4,9 +4,32 @@
   "main": "worker/index.ts",
   "compatibility_date": "2026-10-14",
   "workers_dev": true,
-  "vars": { "ENABLE_AI": "false", "GROQ_MODEL": "openai/gpt-oss-120b", "ALLOWED_ORIGIN": "https://ai-pdf-editor.pages.dev", "TURNSTILE_SITE_KEY": "" },
-  "ai":{"binding":"AI"},
-  "durable_objects": { "bindings": [{"name":"BUDGET", "class_name":"AIBudget"}] },
-  "migrations": [{"tag":"v1", "new_sqlite_classes":["AIBudget"]}],
-  "observability": {"enabled":false}
+  "vars": {
+    "ENABLE_AI": "false",
+    "GROQ_MODEL": "openai/gpt-oss-120b",
+    "ALLOWED_ORIGIN": "https://ai-pdf-editor.pages.dev",
+    "TURNSTILE_SITE_KEY": "",
+    "AI_APP_LIMITS_ENABLED": "false",
+    "AI_OWNER_PUBLIC_KEY": "{\"kty\":\"EC\",\"x\":\"7P_pKZxNeRBRc6O-mrl5hBbs3iyo0cBh4s4XbAvlk7A\",\"y\":\"OPgQNGsgCtMz6QWNupPQUMHPDiZB5yC5nt1JaXYO1Ro\",\"crv\":\"P-256\"}"
+  },
+  "ai": {
+    "binding": "AI"
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "BUDGET",
+        "class_name": "AIBudget"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["AIBudget"]
+    }
+  ],
+  "observability": {
+    "enabled": false
+  }
 }

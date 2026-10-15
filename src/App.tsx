@@ -1,3 +1,5 @@
+import { signInOwner } from './ai/owner';
+import { requestPlanWithRetry, type RetryNotice } from './ai/retry';
 import {
   useCallback,
   useEffect,
@@ -65,6 +67,9 @@ type Preview = {
 };
 type Config = {
   enabled: boolean;
+  appLimitsEnabled?: boolean;
+  ownerRequired?: boolean;
+  ownerAuthenticated?: boolean;
   siteKey?: string;
   reason?: string;
   backupConfigured?: boolean;
@@ -182,6 +187,51 @@ export default function App() {
     reason: 'Checking AI availability…',
   });
   const [consent, setConsent] = useState(false);
+  const [ownerBusy, setOwnerBusy] = useState(false);
+  const [aiRequestActive, setAiRequestActive] = useState(false);
+  const [retryNotice, setRetryNotice] = useState<RetryNotice>();
+  const aiAbort = useRef<AbortController | undefined>(undefined);
+  const verificationWaiter = useRef<((token: string) => void) | undefined>(undefined);
+  const freshVerification = (signal: AbortSignal) =>
+    new Promise<string>((resolve, reject) => {
+      const cleanup = () => {
+        clearTimeout(timer);
+        verificationWaiter.current = undefined;
+        signal.removeEventListener('abort', abort);
+      };
+      const abort = () => {
+        cleanup();
+        reject(new DOMException('Request cancelled.', 'AbortError'));
+      };
+      if (!captchaId.current || !window.turnstile) {
+        reject(
+          new Error(
+            'Verification is unavailable. Your request and previous preview are preserved.',
+          ),
+        );
+        return;
+      }
+      verificationWaiter.current = (value) => {
+        cleanup();
+        resolve(value);
+      };
+      signal.addEventListener('abort', abort, { once: true });
+      const timer = setTimeout(() => {
+        cleanup();
+        reject(
+          new Error('Complete verification to retry. Your request and preview are preserved.'),
+        );
+      }, 60000);
+      setToken('');
+      window.turnstile.reset(captchaId.current);
+      if (signal.aborted) abort();
+    });
+  useEffect(
+    () => () => {
+      aiAbort.current?.abort();
+    },
+    [],
+  );
   const [token, setToken] = useState('');
   const aiSession = useRef(sessionStorage.getItem('pdf-ai-session') || crypto.randomUUID());
   useEffect(() => {
@@ -260,7 +310,10 @@ export default function App() {
       captchaId.current = window.turnstile.render(captcha.current, {
         sitekey: config.siteKey,
         action: 'pdf-plan',
-        callback: (value: string) => setToken(value),
+        callback: (value: string) => {
+          setToken(value);
+          verificationWaiter.current?.(value);
+        },
         'expired-callback': () => setToken(''),
         'error-callback': () => setToken(''),
       });
@@ -480,7 +533,7 @@ export default function App() {
   const logoReference = /(?:логотип|logo|wordmark)/i.test(instruction);
   const restoreLogo =
     /(?:логотип.*(?:оставь|верни).*как был|(?:restore|keep).*original.*logo)/i.test(instruction);
-  const useLocal = (localReady || logoReference || restoreLogo) && !consent;
+  const useLocal = localReady || logoReference || restoreLogo;
   const stageOperations = async (
     operations: Operation[],
     images: ImageOperation[] = preview?.images || [],
@@ -537,7 +590,16 @@ export default function App() {
     }
   };
   const cloudImageEdit = async () => {
-    if (!model || !selectedImage || busy || !imageConsent || !token || !config.imageEnabled) return;
+    if (
+      !model ||
+      !selectedImage ||
+      busy ||
+      !imageConsent ||
+      !token ||
+      !config.imageEnabled ||
+      (config.ownerRequired && !config.ownerAuthenticated)
+    )
+      return;
     const r = selectedImage.rect,
       b = model.pages[selectedImage.page].bounds;
     if ((r[2] - r[0]) * (r[3] - r[1]) > (b[2] - b[0]) * (b[3] - b[1]) * 0.7) {
@@ -659,7 +721,16 @@ export default function App() {
     }
   };
   const askAI = async () => {
-    if (!model || busy || (!useLocal && (!consent || !config.enabled || !token))) return;
+    if (
+      !model ||
+      busy ||
+      (!useLocal &&
+        (!consent ||
+          !config.enabled ||
+          !token ||
+          (config.ownerRequired && !config.ownerAuthenticated)))
+    )
+      return;
     const previous = editingTurn === undefined ? pendingOperations : turns[editingTurn].before;
     const prefix = (editingTurn === undefined ? turns : turns.slice(0, editingTurn)).slice(-29);
     const previousImages =
@@ -751,10 +822,11 @@ export default function App() {
           throw new Error(
             'This request has no selectable text context. Use the image controls for bitmap content.',
           );
-        const response = await fetch('/api/plan', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+        const controller = new AbortController();
+        aiAbort.current = controller;
+        setAiRequestActive(true);
+        const { response, body } = await requestPlanWithRetry({
+          payload: {
             instruction,
             blocks: context,
             pending: previous
@@ -764,14 +836,29 @@ export default function App() {
                 page: op.target.page + 1,
               }))
               .slice(0, 40),
-            turnstileToken: token,
             sessionId: aiSession.current,
-            requestId: crypto.randomUUID(),
-          }),
-          signal: AbortSignal.timeout(35000),
+          },
+          token,
+          signal: controller.signal,
+          freshVerification: () => freshVerification(controller.signal),
+          onRetry: (notice) => {
+            setRetryNotice(notice);
+            setBusy(
+              'Groq returned 429. Retrying after ' +
+                notice.delay +
+                ' seconds (attempt ' +
+                notice.attempt +
+                ' of ' +
+                notice.maxAttempts +
+                ').',
+            );
+          },
         });
-        const body = await response.json();
-        if (!response.ok) throw new Error(body.error || 'AI could not prepare this request.');
+        controller.signal.throwIfAborted();
+        if (!response.ok)
+          throw new Error(
+            typeof body.error === 'string' ? body.error : 'AI could not prepare this request.',
+          );
         const plan = AIPlanSchema.parse(body);
         if (!plan.edits.length) throw new Error(plan.clarification || 'No changes proposed.');
         operations = mergeOperations(previous, resolvePlan(model, plan, context));
@@ -782,18 +869,20 @@ export default function App() {
         const used = response.headers.get('X-AI-Global-Requests-Used'),
           tokens = response.headers.get('X-AI-Global-Tokens-Used');
         setAiQuota(
-          (used && tokens
-            ? 'Application usage: ' +
-              used +
-              '/' +
-              limits.dailyRequests +
-              ' requests; ' +
-              tokens +
-              '/' +
-              limits.dailyTokens +
-              ' tokens. '
-            : '') +
-            'Application day resets at midnight UTC. Groq organization limits are separate; provider token capacity is per minute.',
+          config.appLimitsEnabled === false
+            ? 'Application quotas disabled for authenticated owner testing. Actual Groq provider limits still apply.'
+            : (used && tokens
+                ? 'Application usage: ' +
+                  used +
+                  '/' +
+                  limits.dailyRequests +
+                  ' requests; ' +
+                  tokens +
+                  '/' +
+                  limits.dailyTokens +
+                  ' tokens. '
+                : '') +
+                'Application day resets at midnight UTC. Groq organization limits are separate; provider token capacity is per minute.',
         );
       }
       operations = syncPendingTotal(model, operations);
@@ -819,12 +908,17 @@ export default function App() {
       setNotice('Complete preview updated. Approve once to download all retained changes.');
     } catch (e) {
       setError(
-        (e as Error).message +
+        ((e as Error).name === 'AbortError'
+          ? 'AI request cancelled. Your instruction is preserved.'
+          : (e as Error).message) +
           (preview
             ? ' The newest request was not applied; your previous validated preview remains available.'
             : ''),
       );
     } finally {
+      aiAbort.current = undefined;
+      setAiRequestActive(false);
+      setRetryNotice(undefined);
       setBusy('');
       setToken('');
       if (captchaId.current) window.turnstile?.reset(captchaId.current);
@@ -1851,8 +1945,8 @@ export default function App() {
                     <>
                       <ShieldCheck size={16} />
                       <span>
-                        This request is interpreted on your device. No document text is sent. To use
-                        Groq instead, opt in below.
+                        This request is interpreted on your device. No document text is sent. Cloud
+                        consent does not change this local behavior.
                       </span>
                     </>
                   ) : config.enabled ? (
@@ -1911,7 +2005,11 @@ export default function App() {
                   className="primary full"
                   disabled={
                     !model ||
-                    (!useLocal && (!config.enabled || !consent || !token)) ||
+                    (!useLocal &&
+                      (!config.enabled ||
+                        !consent ||
+                        !token ||
+                        (config.ownerRequired && !config.ownerAuthenticated))) ||
                     instruction.trim().length < 3 ||
                     !!busy
                   }
@@ -1952,6 +2050,76 @@ export default function App() {
                   </button>
                 ))}
               </>
+            )}
+            {config.ownerRequired && (
+              <section className="owner-access" aria-label="Owner testing access">
+                <strong>Owner testing · application quotas disabled</strong>
+                <p className="hint">
+                  Actual provider limits still apply. Local edits work without signing in.
+                </p>
+                {config.ownerAuthenticated ? (
+                  <>
+                    <p role="status">Owner authenticated for AI testing.</p>
+                    <button
+                      className="text-button"
+                      disabled={!!busy}
+                      onClick={async () => {
+                        await fetch('/api/owner/session', { method: 'DELETE' });
+                        setConfig({ ...config, ownerAuthenticated: false });
+                      }}
+                    >
+                      Sign out owner
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <label htmlFor="owner-key">Sign in with your owner key file</label>
+                    <input
+                      id="owner-key"
+                      aria-label="Owner key file"
+                      type="file"
+                      accept=".json"
+                      disabled={ownerBusy || !!busy}
+                      onChange={async (event) => {
+                        const file = event.target.files?.[0];
+                        event.target.value = '';
+                        if (!file) return;
+                        setOwnerBusy(true);
+                        setError('');
+                        try {
+                          await signInOwner(file);
+                          setConfig({ ...config, ownerAuthenticated: true });
+                          setNotice(
+                            'Owner signed in. Application quotas disabled; actual provider limits apply.',
+                          );
+                        } catch (error) {
+                          setError((error as Error).message);
+                        } finally {
+                          setOwnerBusy(false);
+                        }
+                      }}
+                    />
+                    <p className="hint small">
+                      The private key stays on your device. Only a signed challenge is sent; the
+                      owner session lasts eight hours.
+                    </p>
+                  </>
+                )}
+              </section>
+            )}
+            {aiRequestActive && (
+              <section aria-label="AI retry status" role="status">
+                {retryNotice && (
+                  <p>
+                    Groq requested a {retryNotice.delay}-second delay. Retry {retryNotice.attempt}{' '}
+                    of {retryNotice.maxAttempts} at{' '}
+                    {new Date(retryNotice.retryAt).toLocaleTimeString()}.
+                  </p>
+                )}
+                <button className="secondary full" onClick={() => aiAbort.current?.abort()}>
+                  Cancel AI request
+                </button>
+              </section>
             )}
             {model && (
               <details className="image-tools">
@@ -2183,6 +2351,7 @@ export default function App() {
                         disabled={
                           !!busy ||
                           !config.imageEnabled ||
+                          (config.ownerRequired && !config.ownerAuthenticated) ||
                           !imageConsent ||
                           !token ||
                           imagePrompt.trim().length < 3

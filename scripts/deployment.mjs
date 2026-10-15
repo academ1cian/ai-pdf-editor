@@ -84,8 +84,13 @@ export async function provisionSecrets(env, fetcher = fetch) {
   for (const name of ['GROQ_API_KEY', 'TURNSTILE_SECRET'])
     if (!env[name] || env[name].includes('\n'))
       throw new Error(`Repository secret ${name} is missing or invalid.`);
-  const names=['GROQ_API_KEY','TURNSTILE_SECRET',...(env.GROQ_API_KEY_BACKUP?['GROQ_API_KEY_BACKUP']:[])];
-  if(env.GROQ_API_KEY_BACKUP?.includes('\n'))throw new Error('Backup repository secret is invalid.');
+  const names = [
+    'GROQ_API_KEY',
+    'TURNSTILE_SECRET',
+    ...(env.GROQ_API_KEY_BACKUP ? ['GROQ_API_KEY_BACKUP'] : []),
+  ];
+  if (env.GROQ_API_KEY_BACKUP?.includes('\n'))
+    throw new Error('Backup repository secret is invalid.');
   for (const name of names)
     await cfRequest(
       env,
@@ -93,7 +98,11 @@ export async function provisionSecrets(env, fetcher = fetch) {
       { method: 'PUT', body: { name, type: 'secret_text', text: env[name] } },
       fetcher,
     );
-  console.log('Backup credential '+(env.GROQ_API_KEY_BACKUP?'provisioned':'absent; primary remains available')+'.');
+  console.log(
+    'Backup credential ' +
+      (env.GROQ_API_KEY_BACKUP ? 'provisioned' : 'absent; primary remains available') +
+      '.',
+  );
   return { provisioned: names };
 }
 async function verifyFree(env) {
@@ -163,9 +172,25 @@ async function main() {
     config.vars = {
       ...config.vars,
       ENABLE_AI: 'true',
+      ENABLE_IMAGE_AI: 'true',
+      IMAGE_AI_FREE_VERIFIED: 'true',
       ALLOWED_ORIGIN: origin,
       TURNSTILE_SITE_KEY: env.TURNSTILE_SITE_KEY,
     };
+    for (const name of [
+      'AI_DAILY_REQUESTS',
+      'AI_DAILY_TOKENS',
+      'AI_SESSION_DAY',
+      'AI_SESSION_MINUTE',
+      'AI_NETWORK_DAY',
+      'AI_NETWORK_MINUTE',
+      'AI_GLOBAL_MINUTE_TOKENS',
+    ])
+      if (env[name]) {
+        if (!/^[1-9]\d{0,6}$/.test(env[name]))
+          throw new Error(name + ' must be a positive integer.');
+        config.vars[name] = env[name];
+      }
     // Config lives at repository root so relative entrypoints remain correct.
     await writeFile('wrangler.generated.json', JSON.stringify(config, null, 2));
     const pages = JSON.parse(await readFile('wrangler.pages.jsonc', 'utf8'));
@@ -206,24 +231,28 @@ async function main() {
       try {
         const options = {
           signal: AbortSignal.timeout(10000),
-          headers: {'Cache-Control':'no-cache'},
+          headers: { 'Cache-Control': 'no-cache' },
           cache: 'no-store',
         };
         const [config, html] = await Promise.all([
           fetch(`${origin}/api/config`, options),
           fetch(`${origin}/`, options),
         ]);
-        publicReady = config.ok && html.ok &&
+        publicReady =
+          config.ok &&
+          html.ok &&
           (await config.json()).enabled === true &&
           (await html.text()).includes(`src="${entry}"`);
         if (publicReady) break;
       } catch {
         // Public network failures are retried without printing response bodies.
       }
-      if (attempt < 19) await new Promise(resolve => setTimeout(resolve, 3000));
+      if (attempt < 19) await new Promise((resolve) => setTimeout(resolve, 3000));
     }
     if (!publicReady)
-      throw new Error('Public client/API checks failed after propagation retries. Deployment is not verified.');
+      throw new Error(
+        'Public client/API checks failed after propagation retries. Deployment is not verified.',
+      );
     // Public metadata only; available to the following smoke-test job.
     if (env.GITHUB_OUTPUT) await appendFile(env.GITHUB_OUTPUT, `url=${origin}\n`);
     if (env.GITHUB_STEP_SUMMARY)

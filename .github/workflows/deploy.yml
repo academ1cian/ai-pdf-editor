@@ -74,6 +74,13 @@ jobs:
           CF_FREE_PLAN_CONFIRMED: ${{ vars.CF_FREE_PLAN_CONFIRMED }}
           CF_PAGES_PROJECT: ${{ vars.CF_PAGES_PROJECT }}
           TURNSTILE_SITE_KEY: ${{ vars.TURNSTILE_SITE_KEY }}
+          AI_DAILY_REQUESTS: ${{ vars.AI_DAILY_REQUESTS }}
+          AI_DAILY_TOKENS: ${{ vars.AI_DAILY_TOKENS }}
+          AI_SESSION_DAY: ${{ vars.AI_SESSION_DAY }}
+          AI_SESSION_MINUTE: ${{ vars.AI_SESSION_MINUTE }}
+          AI_NETWORK_DAY: ${{ vars.AI_NETWORK_DAY }}
+          AI_NETWORK_MINUTE: ${{ vars.AI_NETWORK_MINUTE }}
+          AI_GLOBAL_MINUTE_TOKENS: ${{ vars.AI_GLOBAL_MINUTE_TOKENS }}
       - name: Provision Worker secrets directly over TLS (no files or logs)
         run: node scripts/deployment.mjs secrets
         env:

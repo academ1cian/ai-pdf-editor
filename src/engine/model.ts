@@ -8,6 +8,8 @@ export interface Glyph {
   rect: Rect;
   font: string;
   size: number;
+  verticalSize?: number;
+  horizontalScale?: number;
   color: number[];
 }
 export interface Line {
@@ -22,6 +24,7 @@ export interface PageModel {
   bounds: Rect;
   lines: Line[];
   warnings: string[];
+  images?: import('./images').ImageInstance[];
 }
 export interface DocumentModel {
   revision?: string;
@@ -43,7 +46,7 @@ export interface Operation {
   replacement: string;
 }
 export interface Proposal extends Operation {
-  strategy?: 'operand';
+  strategy?: 'operand' | 'reconstruct';
   status: Status;
   message: string;
   font?: string;
@@ -52,7 +55,12 @@ export interface Proposal extends Operation {
   allowedWidth?: number;
   origin?: Point;
   layoutRect?: Rect;
-  fitting?: 'original' | 'whitespace' | 'typography';
+  fitting?: 'original' | 'whitespace' | 'typography' | 'wrap';
+  lines?: { text: string; origin: Point }[];
+  embedded?: boolean;
+  horizontalScale?: number;
+  moves?: { target: Target; dy: number }[];
+  preserveGlyphs?: boolean;
   alignment?: 'left' | 'right';
 }
 export interface Validation {

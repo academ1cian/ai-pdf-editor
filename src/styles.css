@@ -1375,14 +1375,98 @@ textarea {
 }
 
 /* Active batch actions need readable contrast at the compact panel size. */
-:root .secondary { color: #456238; }
+:root .secondary {
+  color: #456238;
+}
 
 /* Real edited PDF preview, using the existing editorial controls. */
-.preview-highlight{position:absolute;pointer-events:none;border:1.5px solid #3c7654;border-radius:2px;box-shadow:0 0 0 2px #a5c79066;background:transparent;}
-.preview-review{border-top:1px solid var(--line);margin-top:20px;padding-top:18px;}
-.preview-review h2{font-size:15px;line-height:1.5;color:#294f40;}
-.preview-review details{margin:14px 0;font-size:11px;line-height:1.8;color:#4c6346;}
-.preview-review summary{cursor:pointer;}
-.preview-compare{display:flex;gap:8px;margin:12px 0;}
-.preview-compare .active{background:#e7eee1;border-color:#6b8a60;}
-.preview-review>.primary{margin:12px 0 8px;}
+.preview-highlight {
+  position: absolute;
+  pointer-events: none;
+  border: 1.5px solid #3c7654;
+  border-radius: 2px;
+  box-shadow: 0 0 0 2px #a5c79066;
+  background: transparent;
+}
+.preview-review {
+  border-top: 1px solid var(--line);
+  margin-top: 20px;
+  padding-top: 18px;
+}
+.preview-review h2 {
+  font-size: 15px;
+  line-height: 1.5;
+  color: #294f40;
+}
+.preview-review details {
+  margin: 14px 0;
+  font-size: 11px;
+  line-height: 1.8;
+  color: #4c6346;
+}
+.preview-review summary {
+  cursor: pointer;
+}
+.preview-compare {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0;
+}
+.preview-compare .active {
+  background: #e7eee1;
+  border-color: #6b8a60;
+}
+.preview-review > .primary {
+  margin: 12px 0 8px;
+}
+
+.conversation {
+  display: grid;
+  gap: 10px;
+  max-height: 280px;
+  overflow: auto;
+  margin: 16px 0;
+}
+.conversation article {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f7f8f5;
+}
+.conversation p {
+  margin: 0 0 6px;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.conversation p + p {
+  color: #68736b;
+}
+.image-tools {
+  border-top: 1px solid var(--line);
+  margin-top: 16px;
+  padding: 12px 0;
+}
+.image-tools > summary {
+  font-weight: 650;
+  cursor: pointer;
+}
+.image-tools section {
+  display: grid;
+  gap: 10px;
+  padding-top: 12px;
+}
+.image-tools input[type='file'] {
+  display: block;
+  width: 100%;
+  font-size: 12px;
+  margin-top: 8px;
+}
+.image-tools .row-actions {
+  flex-wrap: wrap;
+}
+.image-highlight {
+  border-color: #7c63a2;
+  box-shadow: 0 0 0 2px #b69bc766;
+}

@@ -65,14 +65,7 @@ describe('targeting and independent state', () => {
   });
 });
 describe('safe rejection and validation', () => {
-  it.each([
-    '11-overflow',
-    '22-rotation',
-    '24-form',
-    '29-embedded-full',
-    '30-embedded-subset',
-    '31-cyrillic',
-  ])('rejects %s', (id) => {
+  it.each(['22-rotation', '24-form'])('rejects %s', (id) => {
     const source = fixture(id);
     const manifest = JSON.parse(readFileSync('tests/fixtures/manifest.json', 'utf8'));
     const item = manifest.find((x: { id: string }) => x.id === id);
@@ -91,9 +84,9 @@ describe('safe rejection and validation', () => {
     const large = new Uint8Array(MAX_BYTES + 1);
     expect(() => inspectPDF(large)).toThrow('15 MB');
   });
-  it('rejects unavailable glyphs and line breaks', () => {
+  it('rejects unavailable Unicode when the font has not loaded', () => {
     const target = findTargets(inspectPDF(bytes), 'pending')[0];
-    for (const replacement of ['готово', 'line\nbreak', '☀'])
+    for (const replacement of ['готово', '☀'])
       expect(proposePDF(bytes, { target, replacement }).status).toBe('UNSUPPORTED');
   });
   it('rejects skewed, transparent, clipped and overlapping text', async () => {

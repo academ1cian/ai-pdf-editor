@@ -4,7 +4,7 @@ Generated from installed package manifests and available license/notice files; l
 
 The combined application is **AGPL-3.0-only** because it ships MuPDF WASM (AGPL-3.0-or-later). Proprietary reuse of the combined engine is not permitted under this distribution; obtain an appropriate Artifex commercial license or replace MuPDF and review all licenses. No commercial license was purchased.
 
-UI fonts DM Sans / Manrope and embedded synthetic-fixture Liberation Sans carry SIL OFL-1.1 notices. PDF.js also distributes Foxit standard fonts under its bundled notice. Preserve notices when redistributing build/test dependencies.
+UI fonts DM Sans / Manrope, embedded Noto Sans fallback fonts and synthetic-fixture Liberation Sans carry SIL OFL-1.1 notices. Local Tesseract.js OCR carries Apache-2.0; its English language-data package declares MIT. PDF.js also distributes Foxit standard fonts under its bundled notice. Preserve notices when redistributing build/test dependencies.
 
 | Package | Version | License declared upstream | Use | License files |
 |---|---|---|---|---|
@@ -13,10 +13,10 @@ UI fonts DM Sans / Manrope and embedded synthetic-fixture Liberation Sans carry 
 | @cacheable/utils | 2.5.0 | MIT | transitive | LICENSE |
 | @cloudflare/kv-asset-handler | 0.5.0 | MIT OR Apache-2.0 | transitive | not packaged at root; see upstream |
 | @cloudflare/unenv-preset | 2.16.2 | MIT OR Apache-2.0 | transitive | not packaged at root; see upstream |
-| @cloudflare/workerd-linux-64 | 1.20261006.1 | Apache-2.0 | transitive | not packaged at root; see upstream |
+| @cloudflare/workerd-darwin-arm64 | 1.20261006.1 | Apache-2.0 | transitive | not packaged at root; see upstream |
 | @cloudflare/workers-types | 5.20261013.1 | MIT OR Apache-2.0 | direct development | not packaged at root; see upstream |
 | @cspotcode/source-map-support | 0.8.1 | MIT | transitive | LICENSE.md |
-| @esbuild/linux-x64 | 0.28.2 | MIT | transitive | not packaged at root; see upstream |
+| @esbuild/darwin-arm64 | 0.28.2 | MIT | transitive | not packaged at root; see upstream |
 | @eslint-community/eslint-utils | 4.10.1 | MIT | transitive | LICENSE |
 | @eslint-community/regexpp | 4.12.2 | MIT | transitive | LICENSE |
 | @eslint/config-array | 0.23.5 | Apache-2.0 | transitive | LICENSE |
@@ -33,8 +33,8 @@ UI fonts DM Sans / Manrope and embedded synthetic-fixture Liberation Sans carry 
 | @humanwhocodes/module-importer | 1.0.1 | Apache-2.0 | transitive | LICENSE |
 | @humanwhocodes/retry | 0.4.3 | Apache-2.0 | transitive | LICENSE |
 | @img/colour | 1.1.0 | MIT | transitive | LICENSE.md |
-| @img/sharp-libvips-linux-x64 | 1.3.4 | LGPL-3.0-or-later | transitive | not packaged at root; see upstream |
-| @img/sharp-linux-x64 | 0.35.5 | Apache-2.0 | transitive | LICENSE |
+| @img/sharp-darwin-arm64 | 0.35.5 | Apache-2.0 | transitive | LICENSE |
+| @img/sharp-libvips-darwin-arm64 | 1.3.4 | LGPL-3.0-or-later | transitive | not packaged at root; see upstream |
 | @jridgewell/resolve-uri | 3.1.2 | MIT | transitive | LICENSE |
 | @jridgewell/sourcemap-codec | 1.6.0 | MIT | transitive | LICENSE |
 | @jridgewell/trace-mapping | 0.3.9 | MIT | transitive | LICENSE |
@@ -42,7 +42,7 @@ UI fonts DM Sans / Manrope and embedded synthetic-fixture Liberation Sans carry 
 | @keyv/bigmap | 1.3.1 | MIT | transitive | LICENSE |
 | @keyv/serialize | 1.1.1 | MIT | transitive | LICENSE |
 | @napi-rs/canvas | 1.0.11 | MIT | transitive | LICENSE |
-| @napi-rs/canvas-linux-x64-gnu | 1.0.11 | MIT | transitive | not packaged at root; see upstream |
+| @napi-rs/canvas-darwin-arm64 | 1.0.11 | MIT | transitive | not packaged at root; see upstream |
 | @oxc-project/types | 0.153.0 | MIT | transitive | LICENSE |
 | @pdf-lib/fontkit | 1.1.1 | MIT | direct development | not packaged at root; see upstream |
 | @pdf-lib/standard-fonts | 1.0.0 | MIT | transitive | LICENSE.md |
@@ -51,10 +51,11 @@ UI fonts DM Sans / Manrope and embedded synthetic-fixture Liberation Sans carry 
 | @poppinss/colors | 4.1.6 | MIT | transitive | LICENSE.md |
 | @poppinss/dumper | 0.6.5 | MIT | transitive | LICENSE.md |
 | @poppinss/exception | 1.2.3 | MIT | transitive | LICENSE.md |
-| @rolldown/binding-linux-x64-gnu | 1.2.13 | MIT | transitive | not packaged at root; see upstream |
+| @rolldown/binding-darwin-arm64 | 1.2.13 | MIT | transitive | not packaged at root; see upstream |
 | @rolldown/pluginutils | 1.0.1 | MIT | transitive | LICENSE |
 | @sindresorhus/is | 7.2.0 | MIT | transitive | license |
 | @speed-highlight/core | 1.2.24 | CC0-1.0 | transitive | LICENSE |
+| @tesseract.js-data/eng | 1.0.0 | MIT | runtime | not packaged at root; see upstream |
 | @types/chai | 5.2.3 | MIT | transitive | LICENSE |
 | @types/deep-eql | 4.0.2 | MIT | transitive | LICENSE |
 | @types/esrecurse | 4.3.1 | MIT | transitive | LICENSE |
@@ -83,6 +84,7 @@ UI fonts DM Sans / Manrope and embedded synthetic-fixture Liberation Sans carry 
 | axe-core | 4.13.0 | MPL-2.0 | transitive | LICENSE, LICENSE-3RD-PARTY.txt |
 | balanced-match | 4.0.4 | MIT | transitive | LICENSE.md |
 | blake3-wasm | 2.1.5 | MIT | transitive | LICENSE |
+| bmp-js | 0.1.0 | MIT | transitive | LICENSE |
 | brace-expansion | 5.0.12 | MIT | transitive | LICENSE |
 | cacheable | 2.5.0 | MIT | transitive | LICENSE |
 | chai | 6.3.0 | MIT | transitive | LICENSE |
@@ -115,16 +117,19 @@ UI fonts DM Sans / Manrope and embedded synthetic-fixture Liberation Sans carry 
 | find-up | 5.0.0 | MIT | transitive | license |
 | flat-cache | 6.1.23 | MIT | transitive | LICENSE |
 | flatted | 3.4.4 | ISC | transitive | LICENSE |
+| fsevents | 2.3.3 | MIT | transitive | LICENSE |
 | glob-parent | 6.0.2 | ISC | transitive | LICENSE |
 | globals | 17.13.0 | MIT | direct development | license |
 | hashery | 1.5.1 | MIT | transitive | LICENSE |
 | hookified | 1.15.1 | MIT | transitive | LICENSE |
 | hookified | 2.2.0 | MIT | transitive | LICENSE |
+| idb-keyval | 6.3.0 | Apache-2.0 | transitive | LICENCE |
 | ignore | 7.0.12 | MIT | transitive | LICENSE-MIT |
 | ignore | 5.3.2 | MIT | transitive | LICENSE-MIT |
 | imurmurhash | 0.1.4 | MIT | transitive | not packaged at root; see upstream |
 | is-extglob | 2.1.1 | MIT | transitive | LICENSE |
 | is-glob | 4.0.3 | MIT | transitive | LICENSE |
+| is-url | 1.2.4 | MIT | transitive | LICENSE-MIT |
 | isexe | 2.0.0 | ISC | transitive | LICENSE |
 | json-schema-traverse | 0.4.1 | MIT | transitive | LICENSE |
 | json-stable-stringify-without-jsonify | 1.0.1 | MIT | transitive | LICENSE |
@@ -132,7 +137,7 @@ UI fonts DM Sans / Manrope and embedded synthetic-fixture Liberation Sans carry 
 | kleur | 4.1.5 | MIT | transitive | license |
 | levn | 0.4.1 | MIT | transitive | LICENSE |
 | lightningcss | 1.33.0 | MPL-2.0 | transitive | LICENSE |
-| lightningcss-linux-x64-gnu | 1.33.0 | MPL-2.0 | transitive | LICENSE |
+| lightningcss-darwin-arm64 | 1.33.0 | MPL-2.0 | transitive | LICENSE |
 | locate-path | 6.0.0 | MIT | transitive | license |
 | lucide-react | 1.56.0 | ISC | runtime | LICENSE |
 | magic-string | 1.4.3 | MIT | transitive | LICENSE |
@@ -142,7 +147,9 @@ UI fonts DM Sans / Manrope and embedded synthetic-fixture Liberation Sans carry 
 | mupdf | 1.28.1 | AGPL-3.0-or-later | runtime | LICENSE |
 | nanoid | 3.3.20 | MIT | transitive | LICENSE |
 | natural-compare | 1.4.0 | MIT | transitive | not packaged at root; see upstream |
+| node-fetch | 2.7.0 | MIT | transitive | LICENSE.md |
 | obug | 3.0.0 | MIT | transitive | LICENSE |
+| opencollective-postinstall | 2.0.3 | MIT | transitive | LICENSE |
 | optionator | 0.9.4 | MIT | transitive | LICENSE |
 | p-limit | 3.1.0 | MIT | transitive | license |
 | p-locate | 5.0.0 | MIT | transitive | license |
@@ -164,6 +171,7 @@ UI fonts DM Sans / Manrope and embedded synthetic-fixture Liberation Sans carry 
 | qified | 0.10.1 | MIT | transitive | LICENSE |
 | react | 19.3.0 | MIT | runtime | LICENSE |
 | react-dom | 19.3.0 | MIT | runtime | LICENSE |
+| regenerator-runtime | 0.13.11 | MIT | transitive | LICENSE |
 | rolldown | 1.2.13 | MIT | transitive | LICENSE |
 | scheduler | 0.28.0 | MIT | transitive | LICENSE |
 | semver | 7.8.5 | ISC | transitive | LICENSE |
@@ -173,9 +181,12 @@ UI fonts DM Sans / Manrope and embedded synthetic-fixture Liberation Sans carry 
 | source-map-js | 1.2.2 | BSD-3-Clause | transitive | LICENSE |
 | std-env | 4.3.0 | MIT | transitive | LICENCE |
 | supports-color | 10.2.2 | MIT | transitive | license |
+| tesseract.js | 7.0.0 | Apache-2.0 | runtime | LICENSE.md |
+| tesseract.js-core | 7.0.0 | Apache-2.0 | transitive | LICENSE |
 | tinybench | 6.2.2 | MIT | transitive | LICENSE |
 | tinyexec | 1.3.1 | MIT | transitive | LICENSE |
 | tinyglobby | 0.2.17 | MIT | transitive | LICENSE |
+| tr46 | 0.0.3 | MIT | transitive | not packaged at root; see upstream |
 | ts-api-utils | 2.5.0 | MIT | transitive | LICENSE.md |
 | tslib | 1.14.1 | 0BSD | transitive | LICENSE.txt |
 | tsx | 4.23.15 | MIT | direct development | LICENSE |
@@ -188,6 +199,9 @@ UI fonts DM Sans / Manrope and embedded synthetic-fixture Liberation Sans carry 
 | uri-js | 4.4.1 | BSD-2-Clause | transitive | LICENSE |
 | vite | 8.3.4 | MIT | direct development | LICENSE.md |
 | vitest | 5.0.4 | MIT | direct development | LICENSE.md |
+| wasm-feature-detect | 1.9.0 | Apache-2.0 | transitive | LICENSE |
+| webidl-conversions | 3.0.1 | BSD-2-Clause | transitive | LICENSE.md |
+| whatwg-url | 5.0.0 | MIT | transitive | LICENSE.txt |
 | which | 2.0.2 | ISC | transitive | LICENSE |
 | why-is-node-running | 3.2.1 | MIT | transitive | LICENSE |
 | word-wrap | 1.2.5 | MIT | transitive | LICENSE |
@@ -197,4 +211,5 @@ UI fonts DM Sans / Manrope and embedded synthetic-fixture Liberation Sans carry 
 | yocto-queue | 0.1.0 | MIT | transitive | license |
 | youch | 4.1.0-beta.10 | MIT | transitive | LICENSE.md |
 | youch-core | 0.3.3 | MIT | transitive | LICENSE.md |
+| zlibjs | 0.3.1 | MIT | transitive | LICENSE |
 | zod | 4.6.7 | MIT | runtime | LICENSE |

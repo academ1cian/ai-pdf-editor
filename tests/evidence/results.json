@@ -22,11 +22,11 @@
         "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
         "All pages compared at 108 dpi; zero unexpected pixels",
-        "All changes validated together; one atomic transaction"
+        "All text and image changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 661
+    "ms": 361
   },
   {
     "id": "02-serif",
@@ -51,11 +51,11 @@
         "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
         "All pages compared at 108 dpi; zero unexpected pixels",
-        "All changes validated together; one atomic transaction"
+        "All text and image changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 70
+    "ms": 30
   },
   {
     "id": "03-monospace",
@@ -80,11 +80,11 @@
         "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
         "All pages compared at 108 dpi; zero unexpected pixels",
-        "All changes validated together; one atomic transaction"
+        "All text and image changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 35
+    "ms": 19
   },
   {
     "id": "04-large",
@@ -109,11 +109,11 @@
         "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
         "All pages compared at 108 dpi; zero unexpected pixels",
-        "All changes validated together; one atomic transaction"
+        "All text and image changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 39
+    "ms": 18
   },
   {
     "id": "05-small",
@@ -138,11 +138,11 @@
         "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
         "All pages compared at 108 dpi; zero unexpected pixels",
-        "All changes validated together; one atomic transaction"
+        "All text and image changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 32
+    "ms": 19
   },
   {
     "id": "06-bold",
@@ -167,11 +167,11 @@
         "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
         "All pages compared at 108 dpi; zero unexpected pixels",
-        "All changes validated together; one atomic transaction"
+        "All text and image changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 38
+    "ms": 17
   },
   {
     "id": "07-italic",
@@ -196,11 +196,11 @@
         "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
         "All pages compared at 108 dpi; zero unexpected pixels",
-        "All changes validated together; one atomic transaction"
+        "All text and image changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 33
+    "ms": 16
   },
   {
     "id": "08-bold-italic",
@@ -225,11 +225,11 @@
         "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
         "All pages compared at 108 dpi; zero unexpected pixels",
-        "All changes validated together; one atomic transaction"
+        "All text and image changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 31
+    "ms": 16
   },
   {
     "id": "09-shorter",
@@ -254,11 +254,11 @@
         "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
         "All pages compared at 108 dpi; zero unexpected pixels",
-        "All changes validated together; one atomic transaction"
+        "All text and image changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 28
+    "ms": 15
   },
   {
     "id": "10-longer-fits",
@@ -283,11 +283,11 @@
         "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
         "All pages compared at 108 dpi; zero unexpected pixels",
-        "All changes validated together; one atomic transaction"
+        "All text and image changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 28
+    "ms": 14
   },
   {
     "id": "11-overflow",
@@ -295,10 +295,28 @@
     "replacement": "Alexandria Montgomery",
     "page": 0,
     "occurrence": 0,
-    "expected": "EXPECTED UNSUPPORTED",
-    "category": "unsupported",
-    "result": "EXPECTED UNSUPPORTED",
-    "reason": "Replacement needs 126.7 pt; only 24.0 pt is available. Use shorter wording."
+    "expected": "PASS",
+    "category": "simple",
+    "result": "PASS",
+    "validation": {
+      "status": "SAFE_TO_APPLY",
+      "pageCount": 1,
+      "changedPixels": 1143,
+      "outsidePixels": 0,
+      "checkedPages": 1,
+      "checks": [
+        "Reopened combined exported PDF",
+        "Page count preserved",
+        "1 replacements searchable in their target regions",
+        "Original targets removed",
+        "All unaffected text positions and styles preserved",
+        "Links and annotations preserved",
+        "All pages compared at 108 dpi; zero unexpected pixels",
+        "All text and image changes validated together; one atomic transaction"
+      ]
+    },
+    "independent": "PDF.js reopened and extracted replacement",
+    "ms": 15
   },
   {
     "id": "12-duplicates",
@@ -323,11 +341,11 @@
         "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
         "All pages compared at 108 dpi; zero unexpected pixels",
-        "All changes validated together; one atomic transaction"
+        "All text and image changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 28
+    "ms": 15
   },
   {
     "id": "13-multipage",
@@ -352,11 +370,11 @@
         "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
         "All pages compared at 108 dpi; zero unexpected pixels",
-        "All changes validated together; one atomic transaction"
+        "All text and image changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 51
+    "ms": 23
   },
   {
     "id": "14-resume",
@@ -381,11 +399,11 @@
         "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
         "All pages compared at 108 dpi; zero unexpected pixels",
-        "All changes validated together; one atomic transaction"
+        "All text and image changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 76
+    "ms": 36
   },
   {
     "id": "15-invoice",
@@ -410,11 +428,11 @@
         "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
         "All pages compared at 108 dpi; zero unexpected pixels",
-        "All changes validated together; one atomic transaction"
+        "All text and image changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 33
+    "ms": 18
   },
   {
     "id": "16-table",
@@ -439,11 +457,11 @@
         "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
         "All pages compared at 108 dpi; zero unexpected pixels",
-        "All changes validated together; one atomic transaction"
+        "All text and image changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 33
+    "ms": 16
   },
   {
     "id": "17-vectors",
@@ -468,11 +486,11 @@
         "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
         "All pages compared at 108 dpi; zero unexpected pixels",
-        "All changes validated together; one atomic transaction"
+        "All text and image changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 31
+    "ms": 16
   },
   {
     "id": "18-neighbors",
@@ -497,11 +515,11 @@
         "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
         "All pages compared at 108 dpi; zero unexpected pixels",
-        "All changes validated together; one atomic transaction"
+        "All text and image changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 27
+    "ms": 15
   },
   {
     "id": "19-background",
@@ -526,11 +544,11 @@
         "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
         "All pages compared at 108 dpi; zero unexpected pixels",
-        "All changes validated together; one atomic transaction"
+        "All text and image changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 59
+    "ms": 38
   },
   {
     "id": "20-hyperlink",
@@ -555,11 +573,11 @@
         "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
         "All pages compared at 108 dpi; zero unexpected pixels",
-        "All changes validated together; one atomic transaction"
+        "All text and image changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 29
+    "ms": 17
   },
   {
     "id": "21-colored",
@@ -584,11 +602,11 @@
         "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
         "All pages compared at 108 dpi; zero unexpected pixels",
-        "All changes validated together; one atomic transaction"
+        "All text and image changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 25
+    "ms": 17
   },
   {
     "id": "22-rotation",
@@ -657,11 +675,11 @@
         "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
         "All pages compared at 108 dpi; zero unexpected pixels",
-        "All changes validated together; one atomic transaction"
+        "All text and image changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 25
+    "ms": 15
   },
   {
     "id": "27-empty-replacement",
@@ -686,11 +704,11 @@
         "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
         "All pages compared at 108 dpi; zero unexpected pixels",
-        "All changes validated together; one atomic transaction"
+        "All text and image changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 26
+    "ms": 18
   },
   {
     "id": "28-paragraph-tight",
@@ -715,11 +733,11 @@
         "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
         "All pages compared at 108 dpi; zero unexpected pixels",
-        "All changes validated together; one atomic transaction"
+        "All text and image changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 30
+    "ms": 17
   },
   {
     "id": "29-embedded-full",
@@ -727,10 +745,28 @@
     "replacement": "Clear",
     "page": 0,
     "occurrence": 0,
-    "expected": "EXPECTED UNSUPPORTED",
+    "expected": "PASS",
     "category": "embedded-font",
-    "result": "EXPECTED UNSUPPORTED",
-    "reason": "This embedded, subset, or custom font is view-only. This version edits standard PDF fonts without substitution."
+    "result": "PASS",
+    "validation": {
+      "status": "SAFE_TO_APPLY",
+      "pageCount": 1,
+      "changedPixels": 539,
+      "outsidePixels": 0,
+      "checkedPages": 1,
+      "checks": [
+        "Reopened combined exported PDF",
+        "Page count preserved",
+        "1 replacements searchable in their target regions",
+        "Original targets removed",
+        "All unaffected text positions and styles preserved",
+        "Links and annotations preserved",
+        "All pages compared at 108 dpi; zero unexpected pixels",
+        "All text and image changes validated together; one atomic transaction"
+      ]
+    },
+    "independent": "PDF.js reopened and extracted replacement",
+    "ms": 70
   },
   {
     "id": "30-embedded-subset",
@@ -738,10 +774,28 @@
     "replacement": "Small",
     "page": 0,
     "occurrence": 0,
-    "expected": "EXPECTED UNSUPPORTED",
+    "expected": "PASS",
     "category": "embedded-font",
-    "result": "EXPECTED UNSUPPORTED",
-    "reason": "This embedded, subset, or custom font is view-only. This version edits standard PDF fonts without substitution."
+    "result": "PASS",
+    "validation": {
+      "status": "SAFE_TO_APPLY",
+      "pageCount": 1,
+      "changedPixels": 591,
+      "outsidePixels": 0,
+      "checkedPages": 1,
+      "checks": [
+        "Reopened combined exported PDF",
+        "Page count preserved",
+        "1 replacements searchable in their target regions",
+        "Original targets removed",
+        "All unaffected text positions and styles preserved",
+        "Links and annotations preserved",
+        "All pages compared at 108 dpi; zero unexpected pixels",
+        "All text and image changes validated together; one atomic transaction"
+      ]
+    },
+    "independent": "PDF.js reopened and extracted replacement",
+    "ms": 52
   },
   {
     "id": "31-cyrillic",
@@ -749,14 +803,32 @@
     "replacement": "Добрый",
     "page": 0,
     "occurrence": 0,
-    "expected": "EXPECTED UNSUPPORTED",
+    "expected": "PASS",
     "category": "embedded-font",
-    "result": "EXPECTED UNSUPPORTED",
-    "reason": "Replacement text must use printable Latin ASCII characters. Unicode fonts are not yet supported."
+    "result": "PASS",
+    "validation": {
+      "status": "SAFE_TO_APPLY",
+      "pageCount": 1,
+      "changedPixels": 867,
+      "outsidePixels": 0,
+      "checkedPages": 1,
+      "checks": [
+        "Reopened combined exported PDF",
+        "Page count preserved",
+        "1 replacements searchable in their target regions",
+        "Original targets removed",
+        "All unaffected text positions and styles preserved",
+        "Links and annotations preserved",
+        "All pages compared at 108 dpi; zero unexpected pixels",
+        "All text and image changes validated together; one atomic transaction"
+      ]
+    },
+    "independent": "PDF.js reopened and extracted replacement",
+    "ms": 53
   },
   {
     "id": "32-batch-invoice",
-    "target": "0089033",
+    "target": "4172048",
     "replacement": "1000",
     "page": 0,
     "occurrence": 0,
@@ -766,7 +838,7 @@
     "validation": {
       "status": "SAFE_TO_APPLY",
       "pageCount": 3,
-      "changedPixels": 364,
+      "changedPixels": 469,
       "outsidePixels": 0,
       "checkedPages": 3,
       "checks": [
@@ -777,10 +849,10 @@
         "All unaffected text positions and styles preserved",
         "Links and annotations preserved",
         "All pages compared at 108 dpi; zero unexpected pixels",
-        "All changes validated together; one atomic transaction"
+        "All text and image changes validated together; one atomic transaction"
       ]
     },
     "independent": "PDF.js reopened and extracted replacement",
-    "ms": 86
+    "ms": 56
   }
 ]

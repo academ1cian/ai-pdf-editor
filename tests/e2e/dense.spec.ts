@@ -23,14 +23,18 @@ for (const [i, instruction] of requests.entries())
     await page
       .getByLabel('Upload PDF')
       .setInputFiles(resolve('tests/fixtures/dense-invoice-a.pdf'));
-    await page.getByLabel('What would you like to change?', { exact: true }).fill(instruction);
-    await page.getByRole('button', { name: 'Preview changes', exact: true }).click();
+    await page.locator('#instruction').fill(instruction);
+    await page
+      .getByRole('button', { name: /^(Preview changes|Update preview)$/, exact: true })
+      .click();
     const approve = page.getByRole('button', { name: 'Apply & Download', exact: true });
     await expect(approve).toBeEnabled({ timeout: 30000 });
     await expect(page.getByRole('button', { name: 'Undo last edit', exact: true })).toBeDisabled();
     await page.getByRole('button', { name: 'Discard preview', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Download PDF', exact: true })).toBeDisabled();
-    await page.getByRole('button', { name: 'Preview changes', exact: true }).click();
+    await page
+      .getByRole('button', { name: /^(Preview changes|Update preview)$/, exact: true })
+      .click();
     await expect(approve).toBeEnabled({ timeout: 30000 });
     const hash = await page.locator('.app').getAttribute('data-preview-sha256');
     expect(hash).toMatch(/^[a-f0-9]{64}$/);
@@ -84,9 +88,9 @@ test('Groq disclosure consent is scoped to the uploaded document', async ({ page
   await expect(page.getByText('dense-invoice-b.pdf', { exact: true })).toBeVisible();
   await expect(consent).not.toBeChecked();
   await page
-    .getByLabel('What would you like to change?', { exact: true })
+    .locator('#instruction')
     .fill('Change the rate and charge to 3300 and calculate the final amount automatically.');
-  await expect(page.getByText(/This invoice request is interpreted on your device/)).toBeVisible();
+  await expect(page.getByText(/This request is interpreted on your device/)).toBeVisible();
 });
 
 test('built-in invented invoice example opens and prepares a real three-edit preview', async ({
@@ -96,9 +100,11 @@ test('built-in invented invoice example opens and prepares a real three-edit pre
   await page.getByRole('button', { name: 'Try an invoice example', exact: true }).click();
   await expect(page.getByRole('img', { name: 'PDF page 1', exact: true })).toBeVisible();
   await page
-    .getByLabel('What would you like to change?', { exact: true })
+    .locator('#instruction')
     .fill('Поменяй мне rate и charge на тысячу, а final amount посчитай сам.');
-  await page.getByRole('button', { name: 'Preview changes', exact: true }).click();
+  await page
+    .getByRole('button', { name: /^(Preview changes|Update preview)$/, exact: true })
+    .click();
   await expect(page.getByRole('button', { name: 'Apply & Download', exact: true })).toBeEnabled({
     timeout: 30000,
   });

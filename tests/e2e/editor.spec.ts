@@ -11,11 +11,12 @@ test('real upload → review → apply → download → independent reopen → u
   const sourcePath = resolve('tests/fixtures/01-paragraph.pdf');
   const before = readFileSync(sourcePath);
   await page.goto('/');
-  await page.getByRole('tab',{name:'Find & replace',exact:true}).click();
+  await page.getByRole('tab', { name: 'Find & replace', exact: true }).click();
   await expect(page.getByRole('heading', { name: /The right words/ })).toBeVisible();
   if (process.env.EXPECTED_COMMIT_SHA) {
     await expect(page.locator('[data-build-commit]')).toHaveAttribute(
-      'data-build-commit', process.env.EXPECTED_COMMIT_SHA,
+      'data-build-commit',
+      process.env.EXPECTED_COMMIT_SHA,
     );
   }
   await page.getByLabel('Upload PDF').setInputFiles(sourcePath);
@@ -32,7 +33,8 @@ test('real upload → review → apply → download → independent reopen → u
   await page.getByLabel('Replace with').fill('ready');
   await page.getByRole('button', { name: 'Review replacement' }).click();
   await expect(page.getByRole('heading', { name: 'Ready for your review' })).toBeVisible();
-  await page.getByRole('button', { name: 'Apply change' }).click();
+  await page.getByRole('button', { name: 'Preview change' }).click();
+  await page.getByRole('button', { name: 'Apply & Download', exact: true }).click();
   await expect(page.getByText('Export validated', { exact: true })).toBeVisible();
   await page.screenshot({ path: 'docs/screenshots/editor.png', fullPage: true });
   const downloadEvent = page.waitForEvent('download');
@@ -66,7 +68,8 @@ test('real upload → review → apply → download → independent reopen → u
   await page.getByRole('button', { name: /pending.*Page 1/ }).click();
   await page.getByLabel('Replace with').fill('done');
   await page.getByRole('button', { name: 'Review replacement' }).click();
-  await page.getByRole('button', { name: 'Apply change' }).click();
+  await page.getByRole('button', { name: 'Preview change' }).click();
+  await page.getByRole('button', { name: 'Apply & Download', exact: true }).click();
   await expect(page.getByText('Export validated', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Reset to original' }).click();
   await expect(page.getByRole('button', { name: 'Download PDF' })).toBeDisabled();
@@ -74,7 +77,7 @@ test('real upload → review → apply → download → independent reopen → u
 });
 test('empty state, invalid file, no fake AI, and responsive layout', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('tab',{name:'Find & replace',exact:true}).click();
+  await page.getByRole('tab', { name: 'Find & replace', exact: true }).click();
   await page.screenshot({ path: 'docs/screenshots/welcome.png', fullPage: true });
   await page
     .getByLabel('Upload PDF')
@@ -82,7 +85,9 @@ test('empty state, invalid file, no fake AI, and responsive layout', async ({ pa
   await expect(page.getByRole('alert')).toContainText('Choose a PDF');
   await page.getByRole('button', { name: 'Dismiss error' }).click();
   await page.getByRole('tab', { name: 'AI assistant' }).click();
-  await expect(page.getByRole('button', { name: 'Preview changes' })).toBeDisabled();
+  await expect(
+    page.getByRole('button', { name: /^(Preview changes|Update preview)$/ }),
+  ).toBeDisabled();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: 'docs/screenshots/mobile.png', fullPage: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
@@ -91,23 +96,23 @@ test('empty state, invalid file, no fake AI, and responsive layout', async ({ pa
 });
 test('duplicates require selection; overflow and scanned PDFs fail safely', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('tab',{name:'Find & replace',exact:true}).click();
+  await page.getByRole('tab', { name: 'Find & replace', exact: true }).click();
   await page.getByLabel('Upload PDF').setInputFiles(resolve('tests/fixtures/12-duplicates.pdf'));
   await expect(page.getByRole('img')).toBeVisible();
   await page.getByLabel('Find in document').fill('John Smith');
   await expect(page.getByRole('button', { name: 'Review replacement' })).toBeDisabled();
   await expect(page.getByText('2 MATCHES · CHOOSE ONE')).toBeVisible();
   await page.getByRole('button', { name: /John Smith.*Occurrence 2/ }).click();
-  await page.getByLabel('Replace with').fill('This replacement is much too long to fit');
+  await page.getByLabel('Replace with').fill('unboundedword'.repeat(40));
   await page.getByRole('button', { name: 'Review replacement' }).click();
-  await expect(page.getByText(/pt is safely available/)).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Apply change' })).toBeDisabled();
+  await expect(page.getByText(/cannot fit readably/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Preview change' })).toBeDisabled();
   await page.getByLabel('Upload PDF').setInputFiles(resolve('tests/fixtures/23-scanned.pdf'));
   await expect(page.getByText(/No selectable text found/)).toBeVisible();
 });
 test('sample workflow and accessible editor controls', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('tab',{name:'Find & replace',exact:true}).click();
+  await page.getByRole('tab', { name: 'Find & replace', exact: true }).click();
   const emptyAudit = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
   expect(emptyAudit.violations).toEqual([]);
   await page.getByRole('button', { name: 'Just looking? Try a sample document' }).click();
@@ -117,7 +122,8 @@ test('sample workflow and accessible editor controls', async ({ page }) => {
   await page.getByRole('button', { name: 'Review replacement' }).click();
   await expect(page.getByRole('heading', { name: 'Ready for your review' })).toBeVisible();
   await page.screenshot({ path: 'docs/screenshots/review.png', fullPage: true });
-  await page.getByRole('button', { name: 'Apply change' }).click();
+  await page.getByRole('button', { name: 'Preview change' }).click();
+  await page.getByRole('button', { name: 'Apply & Download', exact: true }).click();
   await expect(page.getByText('Export validated', { exact: true })).toBeVisible();
   await page.screenshot({ path: 'docs/screenshots/editor.png', fullPage: true });
   const audit = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();

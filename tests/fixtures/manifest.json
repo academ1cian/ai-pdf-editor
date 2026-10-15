@@ -95,8 +95,8 @@
     "replacement": "Alexandria Montgomery",
     "page": 0,
     "occurrence": 0,
-    "expected": "EXPECTED UNSUPPORTED",
-    "category": "unsupported"
+    "expected": "PASS",
+    "category": "simple"
   },
   {
     "id": "12-duplicates",
@@ -257,7 +257,7 @@
     "replacement": "Clear",
     "page": 0,
     "occurrence": 0,
-    "expected": "EXPECTED UNSUPPORTED",
+    "expected": "PASS",
     "category": "embedded-font"
   },
   {
@@ -266,7 +266,7 @@
     "replacement": "Small",
     "page": 0,
     "occurrence": 0,
-    "expected": "EXPECTED UNSUPPORTED",
+    "expected": "PASS",
     "category": "embedded-font"
   },
   {
@@ -275,12 +275,12 @@
     "replacement": "Добрый",
     "page": 0,
     "occurrence": 0,
-    "expected": "EXPECTED UNSUPPORTED",
+    "expected": "PASS",
     "category": "embedded-font"
   },
   {
     "id": "32-batch-invoice",
-    "target": "0089033",
+    "target": "4172048",
     "replacement": "1000",
     "page": 0,
     "occurrence": 0,

@@ -34,16 +34,16 @@ async function independent(bytes: Uint8Array) {
 }
 describe('atomic batch PDF editing', () => {
   it('handles screenshot invoice geometry and Helvetica-Bold 9.8 pt without changing neighbors', () => {
-    const result = applyPDF(source, op('0089033', '1000'));
+    const result = applyPDF(source, op('4172048', '1000'));
     expect(result.validation.outsidePixels).toBe(0);
-    expect(findTargets(result.model, '0089033')).toHaveLength(5);
+    expect(findTargets(result.model, '4172048')).toHaveLength(5);
     expect(findTargets(result.model, '1000')).toHaveLength(1);
     expect(findTargets(result.model, 'INVOICE')).toHaveLength(3);
   });
   it('applies three distant partial-line changes on one page and independently verifies every replacement', async () => {
     const before = source.slice();
     const result = applyBatchPDF(source, [
-      op('0089033', '1000'),
+      op('4172048', '1000'),
       op('Project Office', 'Records'),
       op('1205.00', '995.00'),
     ]);
@@ -59,13 +59,13 @@ describe('atomic batch PDF editing', () => {
   });
   it('applies different replacements across three pages and preserves unselected identical occurrences', async () => {
     const result = applyBatchPDF(source, [
-      op('0089033', '1000', 0),
+      op('4172048', '1000', 0),
       op('10/13/2026', '10/14/2026', 1),
       op('pending', 'ready', 2),
     ]);
     const pages = await independent(result.bytes);
     expect(pages[0]).toContain('1000');
-    expect(pages[0]).toContain('0089033');
+    expect(pages[0]).toContain('4172048');
     expect(pages[1]).toContain('10/14/2026');
     expect(pages[2]).toContain('ready');
     expect(result.validation.outsidePixels).toBe(0);
@@ -83,8 +83,8 @@ describe('atomic batch PDF editing', () => {
     expect(result.validation.outsidePixels).toBe(0);
   });
   it('rejects duplicate, conflicting and overlapping targets before mutation', () => {
-    const one = op('0089033', '1000');
-    const overlap = op('0089', '1000');
+    const one = op('4172048', '1000');
+    const overlap = op('4172', '1000');
     for (const operations of [
       [one, one],
       [one, overlap],
@@ -97,15 +97,15 @@ describe('atomic batch PDF editing', () => {
   });
   it('rejects stale references even when the selected text survives a prior edit', () => {
     const stale = op('Project Office', 'Records');
-    const output = applyBatchPDF(source, [op('0089033', '1000')]);
+    const output = applyBatchPDF(source, [op('4172048', '1000')]);
     expect(() => applyBatchPDF(output.bytes, [stale])).toThrow(/older document/);
   });
   it('one invalid replacement rolls back the complete batch and identifies the failed item', () => {
     const history = new History(source);
     const before = history.current;
     const operations = [
-      op('0089033', '1000'),
-      op('1205.00', 'This replacement will overflow'),
+      op('4172048', '1000'),
+      op('1205.00', 'This replacement cannot fit. '.repeat(100)),
       op('pending', 'ready', 2),
     ];
     const preflight = proposeBatchPDF(history.current, operations);
@@ -120,7 +120,7 @@ describe('atomic batch PDF editing', () => {
   it('a single undo reverses the entire batch and reset restores original bytes', () => {
     const history = new History(source);
     history.commit(
-      applyBatchPDF(history.current, [op('0089033', '1000'), op('pending', 'ready', 2)]).bytes,
+      applyBatchPDF(history.current, [op('4172048', '1000'), op('pending', 'ready', 2)]).bytes,
     );
     expect(history.length).toBe(1);
     expect(history.undo()).toEqual(source);

@@ -1,4 +1,5 @@
 // Synthetic, redistributable test documents. No real personal information.
+import './ocr-assets.mjs';
 import { PDFDocument, StandardFonts, rgb, degrees, PDFName, PDFString } from 'pdf-lib';
 import { mkdir, writeFile, readFile, copyFile } from 'node:fs/promises';
 import fontkit from '@pdf-lib/fontkit';
@@ -14,7 +15,7 @@ const cases = [
   ['08-bold-italic', 'HelveticaBoldOblique', 14, 'Review required', 'required', 'done'],
   ['09-shorter', 'Helvetica', 12, 'Alexander Hamilton', 'Alexander Hamilton', 'Alex'],
   ['10-longer-fits', 'Courier', 12, 'iiiiiiii', 'iiiiiiii', 'MMM'],
-  ['11-overflow', 'Helvetica', 12, 'Amy', 'Amy', 'Alexandria Montgomery', 'unsupported'],
+  ['11-overflow', 'Helvetica', 12, 'Amy', 'Amy', 'Alexandria Montgomery'],
   ['12-duplicates', 'Helvetica', 12, 'John Smith', 'John Smith', 'Jane Doe', 'duplicate'],
   ['13-multipage', 'Helvetica', 12, 'Page one', 'pending', 'ready', 'multipage'],
   ['14-resume', 'Helvetica', 14, 'Jordan Example', 'Jordan Example', 'Robin Sample', 'resume'],
@@ -162,7 +163,7 @@ for (const [id, text, target, replacement, subset] of [
     replacement,
     page: 0,
     occurrence: 0,
-    expected: 'EXPECTED UNSUPPORTED',
+    expected: 'PASS',
     category: 'embedded-font',
   });
 }
@@ -234,9 +235,9 @@ for (let n = 0; n < 3; n++) {
   const p = batchDoc.addPage([612, 792]);
   p.drawText('PROJECT OFFICE / DOCUMENT CONTROL', { x: 48, y: 744, size: 11, font: batchBold });
   p.drawText('INVOICE', { x: 412, y: 742, size: 13, font: batchBold });
-  p.drawText('0089033', { x: 476, y: 742, size: 9.8, font: batchBold });
+  p.drawText('4172048', { x: 476, y: 742, size: 9.8, font: batchBold });
   p.drawText('DATE 10/13/2026', { x: 458, y: 724, size: 9.8, font: batchBold });
-  p.drawText('ORDER NUMBER 0089033', { x: 417, y: 707, size: 9.8, font: batchBold });
+  p.drawText('ORDER NUMBER 4172048', { x: 417, y: 707, size: 9.8, font: batchBold });
   p.drawText('BILL TO', { x: 48, y: 665, size: 9, font: batchBold });
   p.drawText('Project Office', { x: 48, y: 644, size: 12, font: batchRegular });
   p.drawText('Document review and delivery', { x: 48, y: 623, size: 11, font: batchRegular });
@@ -275,7 +276,7 @@ await writeFile('tests/fixtures/32-batch-invoice.pdf', batchBytes);
 await writeFile('public/batch-sample.pdf', batchBytes);
 manifest.push({
   id: '32-batch-invoice',
-  target: '0089033',
+  target: '4172048',
   replacement: '1000',
   page: 0,
   occurrence: 0,
@@ -288,55 +289,103 @@ console.log(`Generated ${manifest.length} distinct synthetic fixtures.`);
 
 // One focused, synthetic invoice for realistic numeric fitting and context regressions.
 {
-  const doc=await PDFDocument.create(),font=await doc.embedFont(StandardFonts.Helvetica);
-  const page=doc.addPage([612,792]);
-  const text=(t,x,y,size=10)=>page.drawText(t,{x,y,size,font});
-  const right=(t,x,y)=>text(t,x-font.widthOfTextAtSize(t,9.8),y,9.8);
-  text('PROJECT OFFICE — SYNTHETIC INVOICE',40,720,14);
-  for(const x of [350,400,470,560])page.drawLine({start:{x,y:440},end:{x,y:560},thickness:.5});
-  for(const y of [440,480,505,530,560])page.drawLine({start:{x:350,y},end:{x:560,y},thickness:.5});
-  text('QTY',360,540);text('RATE',420,540);text('CHARGES',490,540);
-  right('1',380,515);right('1205.00',450,515);right('1205.00',540,515);
-  right('1',380,490);right('90.00',450,490);right('90.00',540,490);
-  text('TOTAL',405,455);right('1295.00',540,455);
-  text('Payment terms: 30 days. Preserve this text.',40,390);
-  const bytes=await doc.save();await writeFile('tests/fixtures/focused-invoice.pdf',bytes);
-  await writeFile('public/focused-invoice.pdf',bytes);
+  const doc = await PDFDocument.create(),
+    font = await doc.embedFont(StandardFonts.Helvetica);
+  const page = doc.addPage([612, 792]);
+  const text = (t, x, y, size = 10) => page.drawText(t, { x, y, size, font });
+  const right = (t, x, y) => text(t, x - font.widthOfTextAtSize(t, 9.8), y, 9.8);
+  text('PROJECT OFFICE — SYNTHETIC INVOICE', 40, 720, 14);
+  for (const x of [350, 400, 470, 560])
+    page.drawLine({ start: { x, y: 440 }, end: { x, y: 560 }, thickness: 0.5 });
+  for (const y of [440, 480, 505, 530, 560])
+    page.drawLine({ start: { x: 350, y }, end: { x: 560, y }, thickness: 0.5 });
+  text('QTY', 360, 540);
+  text('RATE', 420, 540);
+  text('CHARGES', 490, 540);
+  right('1', 380, 515);
+  right('1205.00', 450, 515);
+  right('1205.00', 540, 515);
+  right('1', 380, 490);
+  right('90.00', 450, 490);
+  right('90.00', 540, 490);
+  text('TOTAL', 405, 455);
+  right('1295.00', 540, 455);
+  text('Payment terms: 30 days. Preserve this text.', 40, 390);
+  const bytes = await doc.save();
+  await writeFile('tests/fixtures/focused-invoice.pdf', bytes);
+  await writeFile('public/focused-invoice.pdf', bytes);
 }
 
 // Recovery acceptance invoice: one freight row, one unchanged accessorial fee, cross-page total.
 {
-  const doc=await PDFDocument.create(),font=await doc.embedFont(StandardFonts.Helvetica),bold=await doc.embedFont(StandardFonts.HelveticaBold);
-  const pages=[doc.addPage([612,792]),doc.addPage([612,792]),doc.addPage([612,792])];
-  const text=(p,t,x,y,size=9.8,b=false)=>p.drawText(t,{x,y,size,font:b?bold:font});
-  const right=(p,t,x,y,size=9.8,b=false)=>text(p,t,x-(b?bold:font).widthOfTextAtSize(t,size),y,size,b);
-  pages.forEach((p,i)=>{
-    text(p,'PROJECT LOGISTICS',40,750,16,true);text(p,'SYNTHETIC TEST DOCUMENT',40,732,8);
-    text(p,'INVOICE',430,750,10,true);right(p,'0089033',565,750,9.8,true);
-    text(p,'INVOICE DATE',420,730,9);right(p,'10/13/2026',565,730,9);
-    text(p,'Page '+(i+1)+' of 3',500,35,8);
+  const doc = await PDFDocument.create(),
+    font = await doc.embedFont(StandardFonts.Helvetica),
+    bold = await doc.embedFont(StandardFonts.HelveticaBold);
+  const pages = [doc.addPage([612, 792]), doc.addPage([612, 792]), doc.addPage([612, 792])];
+  const text = (p, t, x, y, size = 9.8, b = false) =>
+    p.drawText(t, { x, y, size, font: b ? bold : font });
+  const right = (p, t, x, y, size = 9.8, b = false) =>
+    text(p, t, x - (b ? bold : font).widthOfTextAtSize(t, size), y, size, b);
+  pages.forEach((p, i) => {
+    text(p, 'PROJECT LOGISTICS', 40, 750, 16, true);
+    text(p, 'SYNTHETIC TEST DOCUMENT', 40, 732, 8);
+    text(p, 'INVOICE', 430, 750, 10, true);
+    right(p, '4172048', 565, 750, 9.8, true);
+    text(p, 'INVOICE DATE', 420, 730, 9);
+    right(p, '10/13/2026', 565, 730, 9);
+    text(p, 'Page ' + (i + 1) + ' of 3', 500, 35, 8);
   });
-  const p=pages[0];
-  p.drawRectangle({x:40,y:615,width:250,height:80,borderWidth:.5,borderColor:rgb(.2,.2,.2)});
-  p.drawRectangle({x:310,y:615,width:262,height:80,borderWidth:.5,borderColor:rgb(.2,.2,.2)});
-  text(p,'SHIPPER',50,680,9,true);text(p,'Project Mill - synthetic shipper',50,661);
-  text(p,'250 Industrial Street',50,645);text(p,'Buffalo, NY 14203',50,629);
-  text(p,'CONSIGNEE',320,680,9,true);text(p,'Project Distribution - synthetic consignee',320,661);
-  text(p,'300 State Route 281',320,645);text(p,'Tully, NY 13159',320,629);
-  text(p,'SHIP DATE',40,586,9,true);text(p,'10/09/2026',120,586);
-  text(p,'BILL OF LADING',310,586,9,true);text(p,'70000000001',420,586);
-  for(const x of [40,300,395,445,510,572])p.drawLine({start:{x,y:468},end:{x,y:541},thickness:.5});
-  for(const y of [468,492,516,541])p.drawLine({start:{x:40,y},end:{x:572,y},thickness:.5});
-  text(p,'DESCRIPTION',48,525,9,true);text(p,'WEIGHT',350,525,8,true);text(p,'UNITS',405,525,8,true);
-  text(p,'RATE',463,525,8,true);text(p,'CHARGES',519,525,8,true);
-  text(p,'All Purpose Flour - freight',48,500,9.8,true);
-  right(p,'42333.4',387,500);right(p,'1.0000',438,500);right(p,'1205.0000',500,500,9.8,true);right(p,'1205.00',565,500,9.8,true);
-  text(p,'UNL - unloading fee',48,477);
-  right(p,'1.0000',438,477);right(p,'90.0000',500,477);right(p,'90.00',565,477);
-  text(p,'Flat-rate transport. Weight is informational; one unit is billed.',40,445,9);
-  text(p,'Remittance instructions and the verified total continue on page 3.',40,420,9);
-  const route=pages[1];
-  text(route,'TRANSPORT DETAILS',40,675,12,true);
+  const p = pages[0];
+  p.drawRectangle({
+    x: 40,
+    y: 615,
+    width: 250,
+    height: 80,
+    borderWidth: 0.5,
+    borderColor: rgb(0.2, 0.2, 0.2),
+  });
+  p.drawRectangle({
+    x: 310,
+    y: 615,
+    width: 262,
+    height: 80,
+    borderWidth: 0.5,
+    borderColor: rgb(0.2, 0.2, 0.2),
+  });
+  text(p, 'SHIPPER', 50, 680, 9, true);
+  text(p, 'Project Mill - synthetic shipper', 50, 661);
+  text(p, '250 Industrial Street', 50, 645);
+  text(p, 'Buffalo, NY 14203', 50, 629);
+  text(p, 'CONSIGNEE', 320, 680, 9, true);
+  text(p, 'Project Distribution - synthetic consignee', 320, 661);
+  text(p, '300 State Route 281', 320, 645);
+  text(p, 'Tully, NY 13159', 320, 629);
+  text(p, 'SHIP DATE', 40, 586, 9, true);
+  text(p, '10/09/2026', 120, 586);
+  text(p, 'BILL OF LADING', 310, 586, 9, true);
+  text(p, '70000000001', 420, 586);
+  for (const x of [40, 300, 395, 445, 510, 572])
+    p.drawLine({ start: { x, y: 468 }, end: { x, y: 541 }, thickness: 0.5 });
+  for (const y of [468, 492, 516, 541])
+    p.drawLine({ start: { x: 40, y }, end: { x: 572, y }, thickness: 0.5 });
+  text(p, 'DESCRIPTION', 48, 525, 9, true);
+  text(p, 'WEIGHT', 350, 525, 8, true);
+  text(p, 'UNITS', 405, 525, 8, true);
+  text(p, 'RATE', 463, 525, 8, true);
+  text(p, 'CHARGES', 519, 525, 8, true);
+  text(p, 'All Purpose Flour - freight', 48, 500, 9.8, true);
+  right(p, '42333.4', 387, 500);
+  right(p, '1.0000', 438, 500);
+  right(p, '1205.0000', 500, 500, 9.8, true);
+  right(p, '1205.00', 565, 500, 9.8, true);
+  text(p, 'UNL - unloading fee', 48, 477);
+  right(p, '1.0000', 438, 477);
+  right(p, '90.0000', 500, 477);
+  right(p, '90.00', 565, 477);
+  text(p, 'Flat-rate transport. Weight is informational; one unit is billed.', 40, 445, 9);
+  text(p, 'Remittance instructions and the verified total continue on page 3.', 40, 420, 9);
+  const route = pages[1];
+  text(route, 'TRANSPORT DETAILS', 40, 675, 12, true);
   [
     'Commodity: packaged flour. Keep product descriptions unchanged.',
     'Origin: Project Mill, Buffalo. Destination: Project Distribution, Tully.',
@@ -345,17 +394,30 @@ console.log(`Generated ${manifest.length} distinct synthetic fixtures.`);
     'Delivery appointment: dispatch confirms the receiving window.',
     'Carrier reference: ARCHIVE-42. Preserve this reference.',
     'No additional tax, discount, or fuel surcharge applies to this invoice.',
-  ].forEach((t,i)=>text(route,t,40,645-i*25,10));
-  const payment=pages[2];
-  text(payment,'INVOICE SUMMARY',40,675,12,true);
-  text(payment,'Freight and the separate unloading charge from page 1 are included.',40,647,10);
-  payment.drawRectangle({x:410,y:570,width:162,height:44,borderWidth:.5,borderColor:rgb(.2,.2,.2)});
-  text(payment,'TOTAL',420,588,10,true);right(payment,'1295.00',565,588,9.8,true);
-  text(payment,'PAYMENT TERMS',40,540,10,true);text(payment,'Net 30 days. Reference invoice 0089033 with payment.',40,518,10);
-  text(payment,'Payment instructions are synthetic and contain no bank account.',40,490,10);
-  text(payment,'Document control: retain shipment references and all addresses.',40,450,10);
-  const bytes=await doc.save();await writeFile('tests/fixtures/recovery-logistics.pdf',bytes);await writeFile('public/logistics-demo.pdf',bytes);
+  ].forEach((t, i) => text(route, t, 40, 645 - i * 25, 10));
+  const payment = pages[2];
+  text(payment, 'INVOICE SUMMARY', 40, 675, 12, true);
+  text(payment, 'Freight and the separate unloading charge from page 1 are included.', 40, 647, 10);
+  payment.drawRectangle({
+    x: 410,
+    y: 570,
+    width: 162,
+    height: 44,
+    borderWidth: 0.5,
+    borderColor: rgb(0.2, 0.2, 0.2),
+  });
+  text(payment, 'TOTAL', 420, 588, 10, true);
+  right(payment, '1295.00', 565, 588, 9.8, true);
+  text(payment, 'PAYMENT TERMS', 40, 540, 10, true);
+  text(payment, 'Net 30 days. Reference invoice 4172048 with payment.', 40, 518, 10);
+  text(payment, 'Payment instructions are synthetic and contain no bank account.', 40, 490, 10);
+  text(payment, 'Document control: retain shipment references and all addresses.', 40, 450, 10);
+  const bytes = await doc.save();
+  await writeFile('tests/fixtures/recovery-logistics.pdf', bytes);
+  await writeFile('public/logistics-demo.pdf', bytes);
 }
 await import('./dense-fixtures.mjs');
 
 await copyFile('tests/fixtures/dense-invoice-a.pdf', 'public/invoice-demo.pdf');
+await import('./mixed-fixtures.mjs');
+await copyFile('tests/fixtures/mixed-invoice.pdf', 'public/mixed-demo.pdf');

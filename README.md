@@ -1,16 +1,16 @@
 # AI PDF Editor
 
-Careful corrections to existing PDF text, with an explicit review step and checks on the **actual exported PDF**. Manual editing stays on your device and works without an AI provider.
+Iterative text, layout and image corrections with one real PDF preview and approval. Follow-up requests refine the current proposal; manual changes and exact local logo lettering work without a provider.
 
-[Open the editor](https://ai-pdf-editor.pages.dev). See [numeric operand editing and verification](docs/OPERAND-EDITING.md) for the current implementation and its support limits. Release identity is available at `/version.json`; historical evidence below describes the earlier release.
+[Open the editor](https://ai-pdf-editor.pages.dev). See [the current workflow, validation and limits](docs/ITERATIVE-EDITING.md), plus [numeric operand internals](docs/OPERAND-EDITING.md). Release identity is available at `/version.json`; historical evidence below describes the earlier release.
 
 ![Actual editor after a validated edit](docs/screenshots/editor.png)
 
-## AI-first editing
+## Iterative editing
 
 Coordinated invoice requests in English, Russian, or mixed accounting terminology can be interpreted locally when one main rate/charge pair and a reconciled payable total are identifiable. Separate fees are preserved and arithmetic is deterministic. No cloud consent or provider allowance is needed for that narrow path. Opting in to Groq uses the protected cloud planner for broader requests.
 
-Upload a supported PDF, describe coordinated changes, and review the actual edited PDF before approving. The worker validates a temporary copy without changing history; “Apply & Download” commits and downloads those same bytes as one Undo transaction. Compare original/edited views and inspect highlighted changes. Manual Find & Replace and batch selection remain available in the secondary tab.
+Upload a supported PDF, describe coordinated changes, inspect the actual candidate, and add or correct requests without losing the earlier edits. Edit a previous request to replace it and invalidate dependent later turns. One approval downloads the entire pending transaction; one document Undo restores its base. The worker validates a temporary copy without changing history; “Apply & Download” commits and downloads those same bytes as one Undo transaction. Compare original/edited views and inspect highlighted changes. Manual Find & Replace and batch selection remain available in the secondary tab.
 
 The recovery acceptance fixture is a three-page synthetic logistics invoice with weight, units, primary freight, a separate unloading fee, shipment information, and a total on another page. The one-sentence instruction is “Change the rate and charges to 1000 and update the total accordingly.” Financial source identities and original arithmetic are verified before calculating new totals. Complete relevant monetary context is required; ambiguous or unverified relationships are not silently guessed.
 
@@ -30,19 +30,19 @@ Current model comparison: 120B passed the exact invoice and repeated-date multi-
 
 ## Honest support boundaries
 
-This release edits short **printable Latin ASCII spans in standard Helvetica, Times and Courier PDF fonts**. Selections can span unrelated locations, lines and pages. Multi-line selections keep one replacement per original line; each span preserves its own baseline. Fitting first preserves font size and baseline, then uses measured adjacent whitespace (at most 36 pt), bounded by text, borders and images. At most 5% font reduction is shown explicitly in review. Recognized numeric columns retain their right edge. It does not substitute fonts, move neighbors or reflow paragraphs.
+Text editing preserves original operands where compatible, measures whitespace in both directions, wraps complete text and can move connected paragraph lines coherently. When original font reuse is unavailable, supported replacements use embedded Noto Sans with appropriate emphasis, including Cyrillic. Images support per-occurrence upload/replacement/removal and bounded movement, while exact logo wording is reconstructed locally on uniform backgrounds. See [detailed support and validation boundaries](docs/ITERATIVE-EDITING.md).
 
-Embedded/subset/custom fonts (including Cyrillic), scans, forms/signatures, encrypted/restricted/repaired PDFs, tagged semantic trees, rotation/skew, clipping, outlined/transparent text and difficult overlaps are rejected or view-only. Upload limits: 15 MB, 80 pages, bounded page dimensions and text counts. History: 20 transactions or 80 MB; up to 40 changes per batch. Engine work runs in a Web Worker with a 45-second timeout.
+Forms/signatures, encrypted/restricted/repaired files, complex semantic trees, rotated/clipped text, arbitrary table reconstruction, difficult overlaps and pagination may be unsupported. Image-only pages use image tools rather than selectable-text editing. Upload limits: 15 MB, 80 pages, bounded page dimensions and text counts. History: 20 transactions or 80 MB; up to 40 text changes and 20 image changes per transaction. Unsupported follow-ups preserve the last validated preview.
 
 Validation at 108 dpi is evidence, not a guarantee of every printer, viewer or PDF feature. This editor is **not a certified document sanitization product**: content could also exist in metadata, attachments or other locations.
 
 ## Measured editing gate
 
-**32 distinct synthetic PDFs investigated: 24 PASS, 8 EXPECTED UNSUPPORTED, 0 FAIL.** Fixtures cover English, Cyrillic, standard/embedded/subset fonts, font styles/sizes, longer/shorter strings, duplicates, multiple pages, resumes, invoices, tables, vectors, nearby text, colors, hyperlinks and difficult cases. They contain no real private information.
+**32 distinct synthetic PDFs investigated: 28 PASS, 4 EXPECTED UNSUPPORTED, 0 FAIL.** Fixtures cover English, Cyrillic, standard/embedded/subset fonts, font styles/sizes, longer/shorter strings, duplicates, multiple pages, resumes, invoices, tables, vectors, nearby text, colors, hyperlinks and difficult cases. They contain no real private information.
 
 Every successful proof-of-concept export reopened with independent PDF.js extraction. Every affected and unaffected page was raster-compared at 108 dpi; zero unexpected pixels outside each original/new text region plus a two-pixel antialias margin. The original input remained unchanged. See [engine decision](docs/ADR-001-pdf-engine.md), [test matrix](docs/TEST-MATRIX.md) and [machine-readable evidence](tests/evidence/results.json).
 
-The hosted quality gate runs unit/integration/safety tests, the 32-PDF proof, typecheck/lint/build, Worker compilation, and **browser tests across Chromium, Firefox and WebKit**. The previous release passed all 24 cases; the focused upgrade adds a dense invoice export/undo case in each browser. The actual public deployment passed **8 Chromium smoke cases**, including a manual batch → real download → independent PDF.js verification → one-step undo, with zero AI requests. [Batch architecture and evidence](docs/BATCH-EDITING.md) documents the transaction model and the screenshot invoice's remaining document-specific investigation.
+The hosted quality gate runs unit/integration/safety checks, the 32-PDF proof, typecheck/lint/build, Worker compilation and complete browser workflows across Chromium, Firefox and WebKit. New cases cover accumulated requests, earlier-request edits, failed/rate-limited follow-ups, image uploads, sanitized SVG and exact local wordmarks. Real downloads are reopened independently and compared with the preview SHA-256. Live Groq/Workers AI evidence is kept separate from mocked failure tests. Private acceptance evidence remains local and ignored.
 
 ## Architecture
 
@@ -92,12 +92,15 @@ pnpm test:e2e
 
 Use [GitHub repository secrets](https://github.com/academ1cian/ai-pdf-editor/settings/secrets/actions), entered directly in the browser:
 
-| Secret | Purpose |
-|---|---|
-| `GROQ_API_KEY` | Groq Free provider key; only Worker provisioning and the bounded hosted synthetic benchmark receive it |
-| `CLOUDFLARE_API_TOKEN` | Scoped Pages/Worker deployment and read-only plan verification |
-| `CLOUDFLARE_ACCOUNT_ID` | Chosen Cloudflare account |
-| `TURNSTILE_SECRET` | Server verification secret for the real widget |
+| Secret                  | Purpose                                                                                                |
+| ----------------------- | ------------------------------------------------------------------------------------------------------ |
+| `GROQ_API_KEY_BACKUP`   | Optional standby credential; only HTTP 401 failover, never organization-quota rotation                 |
+| `GROQ_API_KEY`          | Groq Free provider key; only Worker provisioning and the bounded hosted synthetic benchmark receive it |
+| `CLOUDFLARE_API_TOKEN`  | Scoped Pages/Worker deployment and read-only plan verification                                         |
+| `CLOUDFLARE_ACCOUNT_ID` | Chosen Cloudflare account                                                                              |
+| `TURNSTILE_SECRET`      | Server verification secret for the real widget                                                         |
+
+Optional bounded allowance variables are documented in [iterative editing](docs/ITERATIVE-EDITING.md). Image AI uses the existing Worker binding and a separate consent/budget; no additional API key is required.
 
 Public repository variables: `TURNSTILE_SITE_KEY`, `CF_FREE_PLAN_CONFIRMED=true` after verifying both providers are Free, and `DEPLOY_ENABLED=true` when ready. Deployed Pages project: `ai-pdf-editor`; verified production hostname: [`ai-pdf-editor.pages.dev`](https://ai-pdf-editor.pages.dev). Authenticated project creation checks the returned hostname and stops on a collision.
 

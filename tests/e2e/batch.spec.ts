@@ -29,10 +29,10 @@ test('manual non-contiguous batch across pages → atomic apply → real downloa
   const input = resolve('tests/fixtures/32-batch-invoice.pdf'),
     original = readFileSync(input);
   await page.goto('/');
-  await page.getByRole('tab',{name:'Find & replace',exact:true}).click();
+  await page.getByRole('tab', { name: 'Find & replace', exact: true }).click();
   await page.getByLabel('Upload PDF').setInputFiles(input);
   await expect(page.getByRole('img', { name: 'PDF page 1' })).toBeVisible();
-  await queueField(page, '0089033', '1000');
+  await queueField(page, '4172048', '1000');
   await queueField(page, 'Project Office', 'Records');
   await queueField(page, '1205.00', '995.00');
   await page.getByLabel('Page', { exact: true }).selectOption({ value: '2' });
@@ -46,7 +46,8 @@ test('manual non-contiguous batch across pages → atomic apply → real downloa
   await page.getByRole('button', { name: 'Review all changes', exact: true }).click();
   await expect(page.getByText('All changes fit.', { exact: false })).toBeVisible();
   await page.screenshot({ path: 'docs/screenshots/batch-review.png', fullPage: true });
-  await page.getByRole('button', { name: 'Apply all changes', exact: true }).click();
+  await page.getByRole('button', { name: 'Preview batch', exact: true }).click();
+  await page.getByRole('button', { name: 'Apply & Download', exact: true }).click();
   await expect(page.getByText('Export validated', { exact: true })).toBeVisible();
   await expect(page.locator('.batch-item')).toHaveCount(0);
   const downloadEvent = page.waitForEvent('download');
@@ -75,7 +76,7 @@ test('manual non-contiguous batch across pages → atomic apply → real downloa
     expect(pages[0]).toContain(text);
   expect(pages[0]).not.toContain('Project Office');
   expect(pages[0]).not.toContain('1205.00');
-  expect(pages[0]).toContain('ORDER NUMBER 0089033');
+  expect(pages[0]).toContain('ORDER NUMBER 4172048');
   expect(pages[1]).toContain('1205.00');
   expect(pages[2]).toContain('10/14/2026');
   expect(pages[2]).not.toContain('10/13/2026');
@@ -86,7 +87,7 @@ test('manual non-contiguous batch across pages → atomic apply → real downloa
   await expect(page.getByRole('button', { name: 'Download PDF' })).toBeDisabled();
   await page.getByLabel('Find in document').fill('1000');
   await expect(page.getByText('No exact match.', { exact: false })).toBeVisible();
-  await page.getByLabel('Find in document').fill('0089033');
+  await page.getByLabel('Find in document').fill('4172048');
   await expect(page.getByText('6 MATCHES · CHOOSE ONE')).toBeVisible();
   expect(requests).toEqual([]);
 });
@@ -94,7 +95,7 @@ test('native drag selects exact fragments across two lines and adds both to pers
   page,
 }) => {
   await page.goto('/');
-  await page.getByRole('tab',{name:'Find & replace',exact:true}).click();
+  await page.getByRole('tab', { name: 'Find & replace', exact: true }).click();
   await page.getByLabel('Upload PDF').setInputFiles(resolve('tests/fixtures/32-batch-invoice.pdf'));
   const first = page.getByRole('button', { name: 'Select text: Review required', exact: true });
   const last = page.getByRole('button', { name: 'Select text: Delivery pending', exact: true });
@@ -116,37 +117,39 @@ test('native drag selects exact fragments across two lines and adds both to pers
   await page.getByLabel('Replacement 1', { exact: true }).fill('ready');
   await page.getByLabel('Replacement 2', { exact: true }).fill('Ship');
   await page.getByRole('button', { name: 'Review all changes', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Apply all changes', exact: true })).toBeEnabled();
-  await page.getByRole('button', { name: 'Apply all changes', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Preview batch', exact: true })).toBeEnabled();
+  await page.getByRole('button', { name: 'Preview batch', exact: true }).click();
+  await page.getByRole('button', { name: 'Apply & Download', exact: true }).click();
   await expect(page.getByText('Export validated', { exact: true })).toBeVisible();
 });
 test('invalid item prevents entire batch; removing it permits one transaction, then reset restores original', async ({
   page,
 }) => {
   await page.goto('/');
-  await page.getByRole('tab',{name:'Find & replace',exact:true}).click();
+  await page.getByRole('tab', { name: 'Find & replace', exact: true }).click();
   await page.getByLabel('Upload PDF').setInputFiles(resolve('tests/fixtures/32-batch-invoice.pdf'));
-  await queueField(page, '0089033', '1000');
-  await queueField(page, '1205.00', 'This replacement is too long');
+  await queueField(page, '4172048', '1000');
+  await queueField(page, '1205.00', 'unboundedword'.repeat(40));
   await page.getByRole('button', { name: 'Review all changes', exact: true }).click();
   await expect(page.locator('.batch-summary')).toContainText('Change 2');
-  await expect(page.getByRole('button', { name: 'Apply all changes', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Preview batch', exact: true })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Download PDF', exact: true })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Undo last edit' })).toBeDisabled();
   await page.getByRole('button', { name: 'Remove change 2', exact: true }).click();
   await page.getByRole('button', { name: 'Review all changes', exact: true }).click();
-  await page.getByRole('button', { name: 'Apply all changes', exact: true }).click();
+  await page.getByRole('button', { name: 'Preview batch', exact: true }).click();
+  await page.getByRole('button', { name: 'Apply & Download', exact: true }).click();
   await expect(page.getByText('Export validated', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Reset to original', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Download PDF' })).toBeDisabled();
-  await page.getByLabel('Find in document').fill('0089033');
+  await page.getByLabel('Find in document').fill('4172048');
   await expect(page.getByText('6 MATCHES · CHOOSE ONE')).toBeVisible();
 });
 test('Ctrl/Cmd-assisted independent selection and common replacement work without AI', async ({
   page,
 }) => {
   await page.goto('/');
-  await page.getByRole('tab',{name:'Find & replace',exact:true}).click();
+  await page.getByRole('tab', { name: 'Find & replace', exact: true }).click();
   await page.getByLabel('Upload PDF').setInputFiles(resolve('tests/fixtures/12-duplicates.pdf'));
   const lines = page.getByRole('button', { name: 'Select text: John Smith', exact: true });
   await expect(lines).toHaveCount(2);
@@ -156,7 +159,8 @@ test('Ctrl/Cmd-assisted independent selection and common replacement work withou
   await page.getByLabel('Same replacement for included changes').fill('Jane Doe');
   await page.getByRole('button', { name: 'Set included replacements', exact: true }).click();
   await page.getByRole('button', { name: 'Review all changes', exact: true }).click();
-  await page.getByRole('button', { name: 'Apply all changes', exact: true }).click();
+  await page.getByRole('button', { name: 'Preview batch', exact: true }).click();
+  await page.getByRole('button', { name: 'Apply & Download', exact: true }).click();
   await expect(page.getByText('Export validated', { exact: true })).toBeVisible();
   await page.getByLabel('Find in document').fill('Jane Doe');
   await expect(page.getByText('2 MATCHES · CHOOSE ONE')).toBeVisible();

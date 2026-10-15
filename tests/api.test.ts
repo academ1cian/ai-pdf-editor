@@ -165,29 +165,169 @@ describe('free proxy and abuse protection', () => {
   });
 });
 
-it('reconciles real provider usage, refunds 429, and distinguishes application throttles',async()=>{
-  let usage:Usage|undefined;
-  let count=0;
-  const configured:AIEnv={...env,BUDGET:{idFromName:n=>n,get:()=>({fetch:async req=>{
-    const b=await req.json() as {client:string;network:string;id:string;tokens:number;actual?:number;rejected?:boolean};
-    if(new URL(req.url).pathname==='/reconcile'){usage=reconcile(usage!,b.id,b.actual,b.rejected);return new Response(null,{status:204});}
-    const r=reserve(usage,b.client,b.tokens,Date.UTC(2026,9,14)+count++*20000,undefined,b.network,b.id);
-    usage=r.usage;return Response.json({reason:r.reason,retryAfter:r.retryAfter,remaining:r.remaining},{status:r.allowed?200:429});
-  }})}};
-  const actual=(async(url:RequestInfo|URL)=>String(url).includes('siteverify')?Response.json({success:true,hostname:'editor.example',action:'pdf-plan'}):
-    Response.json({usage:{total_tokens:150},choices:[{message:{content:JSON.stringify(validPlan)},finish_reason:'stop'}]})) as typeof fetch;
-  for(let i=0;i<8;i++)expect((await handleAPI(request(),configured,actual)).status).toBe(200);
+it('reconciles real provider usage, refunds 429, and distinguishes application throttles', async () => {
+  let usage: Usage | undefined;
+  let count = 0;
+  const configured: AIEnv = {
+    ...env,
+    BUDGET: {
+      idFromName: (n) => n,
+      get: () => ({
+        fetch: async (req) => {
+          const b = (await req.json()) as {
+            client: string;
+            network: string;
+            id: string;
+            tokens: number;
+            actual?: number;
+            rejected?: boolean;
+          };
+          if (new URL(req.url).pathname === '/reconcile') {
+            usage = reconcile(usage!, b.id, b.actual, b.rejected);
+            return new Response(null, { status: 204 });
+          }
+          const r = reserve(
+            usage,
+            b.client,
+            b.tokens,
+            Date.UTC(2026, 9, 14) + count++ * 20000,
+            undefined,
+            b.network,
+            b.id,
+          );
+          usage = r.usage;
+          return Response.json(
+            { reason: r.reason, retryAfter: r.retryAfter, remaining: r.remaining },
+            { status: r.allowed ? 200 : 429 },
+          );
+        },
+      }),
+    },
+  };
+  const actual = (async (url: RequestInfo | URL) =>
+    String(url).includes('siteverify')
+      ? Response.json({ success: true, hostname: 'editor.example', action: 'pdf-plan' })
+      : Response.json({
+          usage: { total_tokens: 150 },
+          choices: [{ message: { content: JSON.stringify(validPlan) }, finish_reason: 'stop' }],
+        })) as typeof fetch;
+  for (let i = 0; i < 8; i++)
+    expect((await handleAPI(request(), configured, actual)).status).toBe(200);
   expect(usage!.tokens).toBe(1200);
-  const refused=await handleAPI(request(),configured,fetcher(validPlan,undefined,429));
-  expect((await refused.json()).code).toBe('provider_rate_limit');expect(usage!.tokens).toBe(1200);expect(usage!.requests).toBe(8);
-  usage={...usage!,tokens:100000};
-  const capped=await handleAPI(request(),configured,actual);
+  const refused = await handleAPI(request(), configured, fetcher(validPlan, undefined, 429));
+  expect((await refused.json()).code).toBe('provider_rate_limit');
+  expect(usage!.tokens).toBe(1200);
+  expect(usage!.requests).toBe(8);
+  usage = { ...usage!, tokens: 100000 };
+  const capped = await handleAPI(request(), configured, actual);
   expect((await capped.json()).code).toBe('global_daily');
 });
 
-it('bounds uncertain reservations by estimated tokens instead of every serialized byte',async()=>{
- let held=0;
- const budget={idFromName:(n:string)=>n,get:()=>({fetch:async(req:Request)=>{if(new URL(req.url).pathname==='/reserve')held=(await req.json() as {tokens:number}).tokens;return Response.json({remaining:29});}})};
- const r=await handleAPI(request(),{...env,BUDGET:budget},fetcher());
- expect(r.status).toBe(200);expect(held).toBeGreaterThan(2000);expect(held).toBeLessThan(7500);
+it('bounds uncertain reservations by estimated tokens instead of every serialized byte', async () => {
+  let held = 0;
+  const budget = {
+    idFromName: (n: string) => n,
+    get: () => ({
+      fetch: async (req: Request) => {
+        if (new URL(req.url).pathname === '/reserve')
+          held = ((await req.json()) as { tokens: number }).tokens;
+        return Response.json({ remaining: 29 });
+      },
+    }),
+  };
+  const r = await handleAPI(request(), { ...env, BUDGET: budget }, fetcher());
+  expect(r.status).toBe(200);
+  expect(held).toBeGreaterThan(2000);
+  expect(held).toBeLessThan(7500);
+});
+it('image route requires separate consent and passes a real multipart input image to the binding (mock)', async () => {
+  const image =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADUlEQVQIHWP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC';
+  let inference = 0;
+  const imageEnv: AIEnv = {
+    ...env,
+    ENABLE_IMAGE_AI: 'true',
+    IMAGE_AI_FREE_VERIFIED: 'true',
+    BUDGET: {
+      idFromName: (n) => n,
+      get: () => ({ fetch: async () => Response.json({ allowed: true }) }),
+    },
+    AI: {
+      run: async (model, input) => {
+        inference++;
+        expect(model).toBe('@cf/black-forest-labs/flux-2-klein-4b');
+        const form = await new Response(input.multipart.body, {
+          headers: { 'Content-Type': input.multipart.contentType },
+        }).formData();
+        expect(form.get('input_image_0')).toBeInstanceOf(Blob);
+        expect(form.get('width')).toBe('512');
+        return { image };
+      },
+    },
+  };
+  const payload = {
+    prompt: 'Turn the supplied red square blue.',
+    image,
+    consent: true,
+    sessionId: crypto.randomUUID(),
+    requestId: crypto.randomUUID(),
+    turnstileToken: 'mock-token',
+  };
+  const imageRequest = (data: unknown) =>
+    new Request('https://proxy.example/api/image', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Origin: 'https://editor.example',
+        'CF-Connecting-IP': '192.0.2.1',
+      },
+      body: JSON.stringify(data),
+    });
+  expect(
+    (await handleAPI(imageRequest({ ...payload, consent: false }), imageEnv, fetcher())).status,
+  ).toBe(400);
+  expect(inference).toBe(0);
+  expect((await handleAPI(imageRequest(payload), imageEnv, fetcher())).status).toBe(200);
+  expect(inference).toBe(1);
+});
+it('image provider daily allocation uses an accurate UTC reset and no paid fallback (mock)', async () => {
+  const imageEnv: AIEnv = {
+    ...env,
+    ENABLE_IMAGE_AI: 'true',
+    IMAGE_AI_FREE_VERIFIED: 'true',
+    BUDGET: {
+      idFromName: (n) => n,
+      get: () => ({ fetch: async () => Response.json({ allowed: true }) }),
+    },
+    AI: {
+      run: async () => {
+        throw new Error('3036: Account limited');
+      },
+    },
+  };
+  const response = await handleAPI(
+    new Request('https://proxy.example/api/image', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Origin: 'https://editor.example',
+        'CF-Connecting-IP': '192.0.2.1',
+      },
+      body: JSON.stringify({
+        prompt: 'Create an invented blue square.',
+        consent: true,
+        sessionId: crypto.randomUUID(),
+        requestId: crypto.randomUUID(),
+        turnstileToken: 'mock',
+      }),
+    }),
+    imageEnv,
+    fetcher(),
+  );
+  expect(response.status).toBe(429);
+  const body = (await response.json()) as { code: string; error: string; retryAfter: number };
+  expect(body.code).toBe('image_provider_daily');
+  expect(body.error).toContain('midnight UTC');
+  expect(body.retryAfter).toBeGreaterThan(0);
+  expect(response.headers.get('Retry-After')).toBe(String(body.retryAfter));
 });

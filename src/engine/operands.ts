@@ -120,15 +120,17 @@ export function planOperands(
   doc: mupdf.PDFDocument,
   op: Operation,
   glyphs: Glyph[],
+  remove = false,
 ): OperandPlan | undefined {
   if (
-    !/^[$£€]?-?\d[\d,.]*$/.test(op.target.original) ||
-    op.replacement.length !== op.target.original.length ||
-    glyphs.length !== op.replacement.length
+    !remove &&
+    (!/^[$£€]?-?\d[\d,.]*$/.test(op.target.original) ||
+      op.replacement.length !== op.target.original.length ||
+      glyphs.length !== op.replacement.length)
   )
     return;
   // Punctuation and currency must stay put; only equal-width digits may change.
-  for (let i = 0; i < op.replacement.length; i++)
+  for (let i = 0; !remove && i < op.replacement.length; i++)
     if (
       op.replacement[i] !== op.target.original[i] &&
       !(/^\d$/.test(op.replacement[i]) && /^\d$/.test(op.target.original[i]))
@@ -157,8 +159,11 @@ export function planOperands(
     if (sources.reduce((size, s) => size + s.length, 0) > 16 * 1024 * 1024) return;
     const candidates: OperandPatch[] = [];
     let fontKey = '',
-      inText = false;
-    const stack: string[] = [];
+      inText = false,
+      fontSize = 0,
+      charSpace = 0,
+      wordSpace = 0;
+    const stack: { fontKey: string; fontSize: number; charSpace: number; wordSpace: number }[] = [];
     for (let stream = 0; stream < sources.length; stream++) {
       const tokens = lexContent(sources[stream]);
       let args: Token[] = [];
@@ -171,15 +176,20 @@ export function planOperands(
           args.push(token);
           continue;
         }
-        if (token.value === 'q') stack.push(fontKey);
+        if (token.value === 'q') stack.push({ fontKey, fontSize, charSpace, wordSpace });
         if (token.value === 'Q') {
           if (!stack.length) return;
-          fontKey = stack.pop()!;
+          ({ fontKey, fontSize, charSpace, wordSpace } = stack.pop()!);
         }
         if (token.value === 'BT') inText = true;
         if (token.value === 'ET') inText = false;
-        if (token.value === 'Tf') fontKey = args.at(-2)?.kind === 'name' ? args.at(-2)!.value : '';
-        if (inText && ['Tj', 'TJ', "'", '"'].includes(token.value)) {
+        if (token.value === 'Tf') {
+          fontKey = args.at(-2)?.kind === 'name' ? args.at(-2)!.value : '';
+          fontSize = Number(args.at(-1)?.value);
+        }
+        if (token.value === 'Tc') charSpace = Number(args.at(-1)?.value);
+        if (token.value === 'Tw') wordSpace = Number(args.at(-1)?.value);
+        if (inText && (remove ? ['Tj', 'TJ'] : ['Tj', 'TJ', "'", '"']).includes(token.value)) {
           const strings =
             token.value === 'TJ'
               ? args.filter((t) => t.kind === 'string')
@@ -224,7 +234,7 @@ export function planOperands(
                   return;
                 const metrics = new mupdf.Font(base.asName());
                 try {
-                  for (let i = 0; i < str.value.length; i++)
+                  for (let i = 0; !remove && i < str.value.length; i++)
                     if (
                       Math.abs(
                         metrics.advanceGlyph(metrics.encodeCharacter(str.value[i])) -
@@ -235,16 +245,32 @@ export function planOperands(
                 } finally {
                   metrics.destroy();
                 }
+                let advance = 0;
+                if (remove) {
+                  if (!(fontSize > 0)) return;
+                  const metrics = new mupdf.Font(base.asName());
+                  try {
+                    for (const c of str.value)
+                      advance +=
+                        metrics.advanceGlyph(metrics.encodeCharacter(c)) * 1000 +
+                        ((charSpace + (c === ' ' ? wordSpace : 0)) / fontSize) * 1000;
+                  } finally {
+                    metrics.destroy();
+                  }
+                }
                 candidates.push({
                   stream,
                   start: str.start,
-                  end: str.end,
-                  replacement:
-                    '<' +
-                    Array.from(op.replacement, (c) =>
-                      c.charCodeAt(0).toString(16).padStart(2, '0'),
-                    ).join('') +
-                    '>',
+                  end: remove && token.value === 'Tj' ? token.end : str.end,
+                  replacement: remove
+                    ? token.value === 'Tj'
+                      ? `[] TJ [${-advance}] TJ`
+                      : ` ${-advance} `
+                    : '<' +
+                      Array.from(op.replacement, (c) =>
+                        c.charCodeAt(0).toString(16).padStart(2, '0'),
+                      ).join('') +
+                      '>',
                 });
               } finally {
                 font.destroy();

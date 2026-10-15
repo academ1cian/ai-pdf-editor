@@ -22,5 +22,8 @@ for (const [source, destination] of [
   ['lucide-react/LICENSE', 'Lucide-ISC.txt'],
   ['@fontsource/dm-sans/LICENSE', 'DM-Sans-OFL.txt'],
   ['@fontsource/manrope/LICENSE', 'Manrope-OFL.txt'],
+  ['tesseract.js/LICENSE.md', 'Tesseract-Apache-2.0.txt'],
 ])
   await copyFile(`node_modules/${source}`, `public/licenses/${destination}`);
+
+await copyFile('src/assets/fonts/OFL.txt', 'public/licenses/Noto-Sans-OFL.txt');

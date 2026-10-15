@@ -6,6 +6,7 @@ export default ts.config(
     ignores: [
       'node_modules/**',
       'dist/**',
+      'public/ocr/**',
       'tests/evidence/**',
       'playwright-report/**',
       'test-results/**',

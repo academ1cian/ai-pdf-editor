@@ -1,3 +1,7 @@
+# Numeric operand internals
+
+This document describes the strict numeric path. See [iterative editing](ITERATIVE-EDITING.md) for current layout, embedded-font, image and conversation support.
+
 # Numeric editing without geometric redaction
 
 The previous engine rejected a dense invoice because the RATE's font-metric rectangle intersected the metric rectangles on the next line. Removing that check was unsafe: an actual redaction removed the adjacent label too. Tolerance adjustments cannot solve this failure.
@@ -12,6 +16,6 @@ The preview renders validated temporary PDF bytes. SHA-256 is computed from thos
 
 Public regression coverage includes independently generated invoices with different descriptions, amounts, fees and row positions, original transformed TJ arrays, metric-box collisions, and two image-only supporting pages. PDF.js independently checks text geometry and strict source-derived raster masks at 72, 144 and 288 dpi. Browser tests cover all four English/Russian requests, preview/download SHA-256 equality, cancellation and atomic Undo in Chromium, Firefox and WebKit. Private local acceptance and its independent Poppler/pdfplumber evidence remain in ignored storage, never CI or public artifacts. A private cloud-AI test requires separate disclosure authorization and is not claimed by these local tests.
 
-Limitations: operand editing requires a unique complete standard-font numeric operand, compatible encodings and equal advances. CID/custom/embedded fonts, split strings, inline-image content streams and ambiguous repeated operands fall back or explain unsupported input. This is short-span editing, not general paragraph reflow or scan OCR. The engine remains reusable independently of React and independently deployable through the existing Pages/Workers free workflow. MuPDF remains AGPL; no new runtime library, license, paid service or infrastructure is introduced.
+Limitations: operand editing requires a unique complete standard-font numeric operand, compatible encodings and equal advances. CID/custom/embedded fonts, split strings, inline-image content streams and ambiguous repeated operands fall back or explain unsupported input. This operand strategy handles short numeric spans; broader reconstruction and local image OCR are separate paths described in the current workflow. The engine remains reusable independently of React and independently deployable through the existing Pages/Workers free workflow. MuPDF remains AGPL; the runtime additions and their licenses are documented in the current workflow; no paid service is introduced.
 
 Groq's model and free-plan availability were checked against its official [model list](https://console.groq.com/docs/models) and [free rate limits](https://console.groq.com/docs/rate-limits). Application reservations now use the bounded token estimate rather than one token per serialized byte, reconcile actual provider usage, and retain bounded reservations for uncertain failures. App allowance, provider rejection/rate limit/outage, network failure, Turnstile and invalid model output have distinct responses. No automatic retry loop is used.

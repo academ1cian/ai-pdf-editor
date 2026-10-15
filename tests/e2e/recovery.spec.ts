@@ -1,93 +1,203 @@
-import {test,expect} from '@playwright/test';
-import {readFileSync} from 'node:fs';
-import {resolve} from 'node:path';
-import {getDocument} from 'pdfjs-dist/legacy/build/pdf.mjs';
-import {validateAnalysis} from '../../src/ai/analysis';
-import type {ContextBlock} from '../../src/ai/context';
-const instruction='Change the rate and charges to 1000 and update the total accordingly.';
-test('AI-first → real edited preview → original comparison → one approval download → exact raster match → undo/discard',async({page},testInfo)=>{
-  test.skip(!!process.env.BASE_URL,'Real provider verification is performed separately in the production browser; this case isolates the preview transaction.');
-  await page.route('**/api/config',route=>route.fulfill({json:{enabled:true,siteKey:'synthetic-test-key'}}));
-  await page.route('**/turnstile/v0/api.js?render=explicit',route=>route.fulfill({contentType:'application/javascript',body:
-    "window.turnstile={render:(el,o)=>{window.testCaptcha=o.callback;o.callback('synthetic-token');return 'test';},reset:()=>window.testCaptcha('synthetic-token'),remove:()=>{}};"}));
-  await page.route('**/api/plan',async route=>{
-    const {blocks,instruction}=route.request().postDataJSON() as {blocks:ContextBlock[];instruction:string};
-    const rate=blocks.find(b=>b.field?.type==='rate'&&b.field.role==='line_item')!;
-    const charge=blocks.find(b=>b.field?.type==='charge'&&b.field.role==='line_item')!;
-    const total=blocks.find(b=>b.field?.type==='total')!;
-    const charges=blocks.filter(b=>b.field?.type==='charge'||b.field?.type==='fee');
-    const edit=(b:ContextBlock,replacement:string)=>({id:b.id,operation:'replace' as const,page:b.page,blockId:b.id,original:b.text,replacement,explanation:'Requested change.',ambiguity:'none' as const});
-    const plan=validateAnalysis({interpretation:'Update the primary freight row. Preserve the separate 90.00 unloading fee.',alternatives:[],clarification:'',
-      edits:[edit(rate,'1000'),edit(charge,'1000'),{...edit(total,'0'),calculation:{operation:'sum',sources:charges.map(b=>({blockId:b.id,page:b.page,original:b.text}))}}]},blocks,instruction);
-    await route.fulfill({json:plan});
+import { test, expect } from '@playwright/test';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { validateAnalysis } from '../../src/ai/analysis';
+import type { ContextBlock } from '../../src/ai/context';
+const instruction = 'Change the rate and charges to 1000 and update the total accordingly.';
+test('AI-first → real edited preview → original comparison → one approval download → exact raster match → undo/discard', async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    !!process.env.BASE_URL,
+    'Real provider verification is performed separately in the production browser; this case isolates the preview transaction.',
+  );
+  await page.route('**/api/config', (route) =>
+    route.fulfill({ json: { enabled: true, siteKey: 'synthetic-test-key' } }),
+  );
+  await page.route('**/turnstile/v0/api.js?render=explicit', (route) =>
+    route.fulfill({
+      contentType: 'application/javascript',
+      body: "window.turnstile={render:(el,o)=>{window.testCaptcha=o.callback;o.callback('synthetic-token');return 'test';},reset:()=>window.testCaptcha('synthetic-token'),remove:()=>{}};",
+    }),
+  );
+  await page.route('**/api/plan', async (route) => {
+    const { blocks, instruction } = route.request().postDataJSON() as {
+      blocks: ContextBlock[];
+      instruction: string;
+    };
+    const rate = blocks.find((b) => b.field?.type === 'rate' && b.field.role === 'line_item')!;
+    const charge = blocks.find((b) => b.field?.type === 'charge' && b.field.role === 'line_item')!;
+    const total = blocks.find((b) => b.field?.type === 'total')!;
+    const charges = blocks.filter((b) => b.field?.type === 'charge' || b.field?.type === 'fee');
+    const edit = (b: ContextBlock, replacement: string) => ({
+      id: b.id,
+      operation: 'replace' as const,
+      page: b.page,
+      blockId: b.id,
+      original: b.text,
+      replacement,
+      explanation: 'Requested change.',
+      ambiguity: 'none' as const,
+    });
+    const plan = validateAnalysis(
+      {
+        interpretation:
+          'Update the primary freight row. Preserve the separate 90.00 unloading fee.',
+        alternatives: [],
+        clarification: '',
+        edits: [
+          edit(rate, '1000'),
+          edit(charge, '1000'),
+          {
+            ...edit(total, '0'),
+            calculation: {
+              operation: 'sum',
+              sources: charges.map((b) => ({ blockId: b.id, page: b.page, original: b.text })),
+            },
+          },
+        ],
+      },
+      blocks,
+      instruction,
+    );
+    await route.fulfill({ json: plan });
   });
   await page.goto('/');
-  await expect(page.getByRole('tab',{name:'AI assistant',exact:true})).toHaveAttribute('aria-selected','true');
-  const input=resolve('tests/fixtures/recovery-logistics.pdf'),original=readFileSync(input);
+  await expect(page.getByRole('tab', { name: 'AI assistant', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  const input = resolve('tests/fixtures/recovery-logistics.pdf'),
+    original = readFileSync(input);
   await page.getByLabel('Upload PDF').setInputFiles(input);
-  await expect(page.getByRole('img',{name:'PDF page 1'})).toBeVisible();
-  await page.getByLabel('What would you like to change?',{exact:true}).fill(instruction);
-  await page.getByRole('checkbox',{name:'I agree to send the displayed document context to Groq for a proposal.',exact:true}).check();
-  await page.getByRole('button',{name:'Preview changes',exact:true}).click();
-  await expect(page.getByRole('button',{name:'Apply & Download',exact:true})).toBeEnabled({timeout:30000});
-  await expect(page.getByRole('button',{name:'Undo last edit',exact:true})).toBeDisabled();
-  await expect(page.getByRole('button',{name:'Download PDF',exact:true})).toBeDisabled();
-  await expect(page.getByRole('button',{name:'Select text: 1000.0000',exact:true})).toBeVisible();
-  await expect(page.locator('.preview-highlight')).toHaveCount(2);
-  await page.screenshot({path:'docs/screenshots/recovery-preview-freight.png',fullPage:true});
-  await page.getByRole('button',{name:'Original',exact:true}).click();
-  await expect(page.getByRole('button',{name:'Select text: 1205.0000',exact:true})).toBeVisible();
-  await expect(page.getByRole('button',{name:'Apply & Download',exact:true})).toBeDisabled();
-  await page.getByRole('button',{name:'Edited preview',exact:true}).click();
-  await page.getByRole('button',{name:'Page 3',exact:true}).click();
-  await expect(page.getByRole('button',{name:'Select text: 1090.00',exact:true})).toBeVisible();
-  await expect(page.getByRole('button',{name:'Apply & Download',exact:true})).toBeEnabled();
-  await page.screenshot({path:'docs/screenshots/recovery-preview-total.png',fullPage:true});
-  const raster=()=>page.getByRole('img',{name:'PDF page 3',exact:true}).evaluate(async el=>{
-    const data=new Uint8Array(await(await fetch((el as HTMLImageElement).src)).arrayBuffer());
-    return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',data))).map(b=>b.toString(16).padStart(2,'0')).join('');
+  await expect(page.getByRole('img', { name: 'PDF page 1' })).toBeVisible();
+  await page.locator('#instruction').fill(instruction);
+  await page
+    .getByRole('checkbox', {
+      name: 'I agree to send the displayed document context to Groq for a proposal.',
+      exact: true,
+    })
+    .check();
+  await page
+    .getByRole('button', { name: /^(Preview changes|Update preview)$/, exact: true })
+    .click();
+  await expect(page.getByRole('button', { name: 'Apply & Download', exact: true })).toBeEnabled({
+    timeout: 30000,
   });
-  const previewRaster=await raster();
-  const downloadPromise=page.waitForEvent('download');await page.getByRole('button',{name:'Apply & Download',exact:true}).click();
-  const path=testInfo.outputPath('recovery-approved.pdf');await(await downloadPromise).saveAs(path);
-  await expect(page.locator('.app')).toHaveAttribute('data-rendered-snapshot','original:2');
+  await expect(page.getByRole('button', { name: 'Undo last edit', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Download PDF', exact: true })).toBeDisabled();
+  await expect(
+    page.getByRole('button', { name: 'Select text: 1000.0000', exact: true }),
+  ).toBeVisible();
+  await expect(page.locator('.preview-highlight')).toHaveCount(2);
+  await page.screenshot({ path: 'docs/screenshots/recovery-preview-freight.png', fullPage: true });
+  await page.getByRole('button', { name: 'Original', exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: 'Select text: 1205.0000', exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Apply & Download', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Edited preview', exact: true }).click();
+  await page.getByRole('button', { name: 'Page 3', exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: 'Select text: 1090.00', exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Apply & Download', exact: true })).toBeEnabled();
+  await page.screenshot({ path: 'docs/screenshots/recovery-preview-total.png', fullPage: true });
+  const raster = () =>
+    page.getByRole('img', { name: 'PDF page 3', exact: true }).evaluate(async (el) => {
+      const data = new Uint8Array(await (await fetch((el as HTMLImageElement).src)).arrayBuffer());
+      return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', data)))
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+    });
+  const previewRaster = await raster();
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Apply & Download', exact: true }).click();
+  const path = testInfo.outputPath('recovery-approved.pdf');
+  await (await downloadPromise).saveAs(path);
+  await expect(page.locator('.app')).toHaveAttribute('data-rendered-snapshot', 'original:2');
   expect(await raster()).toBe(previewRaster);
-  const task=getDocument({data:new Uint8Array(readFileSync(path)),useSystemFonts:true});const pdf=await task.promise;
-  const pages=[];
-  for(let i=1;i<=3;i++)pages.push((await(await pdf.getPage(i)).getTextContent()).items.filter(x=>'str'in x).map(x=>'str'in x?x.str:'').join(' '));
-  expect(pages[0]).toContain('1000.0000');expect(pages[0]).not.toContain('1205.00');expect(pages[0]).toContain('90.00');
-  expect(pages[2]).toContain('1090.00');expect(pages[1]).toContain('ARCHIVE-42');await task.destroy();
-  await page.getByRole('button',{name:'Undo last edit',exact:true}).click();
-  await expect(page.getByRole('button',{name:'Select text: 1295.00',exact:true})).toBeVisible();
-  await expect(page.getByRole('button',{name:'Download PDF',exact:true})).toBeDisabled();
-  await page.getByRole('button',{name:'Preview changes',exact:true}).click();
-  await expect(page.getByRole('button',{name:'Apply & Download',exact:true})).toBeEnabled({timeout:30000});
-  await page.getByLabel('What would you like to change?',{exact:true}).fill(instruction+' Keep the unloading fee unchanged.');
-  await expect(page.locator('.app')).toHaveAttribute('data-preview-id','');
-  await page.getByRole('button',{name:'Preview changes',exact:true}).click();
-  await expect(page.getByRole('button',{name:'Apply & Download',exact:true})).toBeEnabled({timeout:30000});
-  await page.getByRole('button',{name:'Discard preview',exact:true}).click();
-  await expect(page.locator('.app')).toHaveAttribute('data-preview-id','');
-  await expect(page.getByRole('button',{name:'Download PDF',exact:true})).toBeDisabled();
-  await expect(page.getByText('Update the primary freight row. Preserve the separate 90.00 unloading fee.',{exact:true})).not.toBeVisible();
+  const task = getDocument({ data: new Uint8Array(readFileSync(path)), useSystemFonts: true });
+  const pdf = await task.promise;
+  const pages = [];
+  for (let i = 1; i <= 3; i++)
+    pages.push(
+      (await (await pdf.getPage(i)).getTextContent()).items
+        .filter((x) => 'str' in x)
+        .map((x) => ('str' in x ? x.str : ''))
+        .join(' '),
+    );
+  expect(pages[0]).toContain('1000.0000');
+  expect(pages[0]).not.toContain('1205.00');
+  expect(pages[0]).toContain('90.00');
+  expect(pages[2]).toContain('1090.00');
+  expect(pages[1]).toContain('ARCHIVE-42');
+  await task.destroy();
+  await page.getByRole('button', { name: 'Undo last edit', exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: 'Select text: 1295.00', exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Download PDF', exact: true })).toBeDisabled();
+  await page.locator('#instruction').fill(instruction);
+  await page
+    .getByRole('button', { name: /^(Preview changes|Update preview)$/, exact: true })
+    .click();
+  await expect(page.getByRole('button', { name: 'Apply & Download', exact: true })).toBeEnabled({
+    timeout: 30000,
+  });
+  await page.locator('#instruction').fill(instruction + ' Keep the unloading fee unchanged.');
+  await expect(page.locator('.app')).not.toHaveAttribute('data-preview-id', '');
+  await page
+    .getByRole('button', { name: /^(Preview changes|Update preview)$/, exact: true })
+    .click();
+  await expect(page.getByRole('button', { name: 'Apply & Download', exact: true })).toBeEnabled({
+    timeout: 30000,
+  });
+  await page.getByRole('button', { name: 'Discard preview', exact: true }).click();
+  await expect(page.locator('.app')).toHaveAttribute('data-preview-id', '');
+  await expect(page.getByRole('button', { name: 'Download PDF', exact: true })).toBeDisabled();
+  await expect(
+    page.getByText('Update the primary freight row. Preserve the separate 90.00 unloading fee.', {
+      exact: true,
+    }),
+  ).not.toBeVisible();
   expect(readFileSync(input)).toEqual(original);
 });
-test('realistic logistics table: wider right-aligned rate preserves fee, borders and all pages',async({page},testInfo)=>{
+test('realistic logistics table: wider right-aligned rate preserves fee, borders and all pages', async ({
+  page,
+}, testInfo) => {
   await page.goto('/');
-  if(process.env.EXPECTED_COMMIT_SHA)await expect(page.locator('.app')).toHaveAttribute('data-build-commit',process.env.EXPECTED_COMMIT_SHA);
-  await page.getByRole('tab',{name:'Find & replace',exact:true}).click();
-  await page.getByLabel('Upload PDF').setInputFiles(resolve('tests/fixtures/recovery-logistics.pdf'));
+  if (process.env.EXPECTED_COMMIT_SHA)
+    await expect(page.locator('.app')).toHaveAttribute(
+      'data-build-commit',
+      process.env.EXPECTED_COMMIT_SHA,
+    );
+  await page.getByRole('tab', { name: 'Find & replace', exact: true }).click();
+  await page
+    .getByLabel('Upload PDF')
+    .setInputFiles(resolve('tests/fixtures/recovery-logistics.pdf'));
   await page.getByLabel('Find in document').fill('1205.0000');
-  await page.getByRole('button',{name:/1205.0000.*Occurrence/}).click();
-  await page.getByLabel('Replace with',{exact:true}).fill('10000.0000');
-  await page.getByRole('button',{name:'Review replacement',exact:true}).click();
-  await expect(page.getByRole('button',{name:'Apply change',exact:true})).toBeEnabled();
-  await page.getByRole('button',{name:'Apply change',exact:true}).click();
-  await expect(page.getByText('Export validated',{exact:true})).toBeVisible();
-  const downloadPromise=page.waitForEvent('download');await page.getByRole('button',{name:'Download PDF',exact:true}).click();
-  const path=testInfo.outputPath('recovery-wider-rate.pdf');await(await downloadPromise).saveAs(path);
-  const task=getDocument({data:new Uint8Array(readFileSync(path)),useSystemFonts:true}),pdf=await task.promise;
+  await page.getByRole('button', { name: /1205.0000.*Occurrence/ }).click();
+  await page.getByLabel('Replace with', { exact: true }).fill('10000.0000');
+  await page.getByRole('button', { name: 'Review replacement', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Preview change', exact: true })).toBeEnabled();
+  await page.getByRole('button', { name: 'Preview change', exact: true }).click();
+  await page.getByRole('button', { name: 'Apply & Download', exact: true }).click();
+  await expect(page.getByText('Export validated', { exact: true })).toBeVisible();
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Download PDF', exact: true }).click();
+  const path = testInfo.outputPath('recovery-wider-rate.pdf');
+  await (await downloadPromise).saveAs(path);
+  const task = getDocument({ data: new Uint8Array(readFileSync(path)), useSystemFonts: true }),
+    pdf = await task.promise;
   expect(pdf.numPages).toBe(3);
-  const text=(await(await pdf.getPage(1)).getTextContent()).items.filter(x=>'str'in x).map(x=>'str'in x?x.str:'').join(' ');
-  expect(text).toContain('10000.0000');expect(text).toContain('90.00');expect(text).toContain('CHARGES');await task.destroy();
+  const text = (await (await pdf.getPage(1)).getTextContent()).items
+    .filter((x) => 'str' in x)
+    .map((x) => ('str' in x ? x.str : ''))
+    .join(' ');
+  expect(text).toContain('10000.0000');
+  expect(text).toContain('90.00');
+  expect(text).toContain('CHARGES');
+  await task.destroy();
 });

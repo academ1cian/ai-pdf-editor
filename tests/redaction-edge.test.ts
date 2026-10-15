@@ -1,38 +1,67 @@
-import {it,expect} from 'vitest';
-import {PDFDocument,StandardFonts} from 'pdf-lib';
-import {inspectPDF,proposePDF,applyPDF} from '../src/engine/pdf';
-import {findTargets,History} from '../src/engine/model';
-it.each(['horizontal','vertical'])('safely handles a barely touching %s neighbor during invoice-number redaction',async(direction)=>{
-  const size=9.8,x=476,y=742;
-  const seedDoc=await PDFDocument.create(), seedFont=await seedDoc.embedFont(StandardFonts.HelveticaBold);
-  seedDoc.addPage([612,792]).drawText('0089033',{x,y,size,font:seedFont});
-  const seedTarget=findTargets(inspectPDF(await seedDoc.save()),'0089033')[0];
-  // Build a fresh document: pdf-lib caches serialized content streams after save.
-  const doc=await PDFDocument.create(), font=await doc.embedFont(StandardFonts.HelveticaBold);
-  const page=doc.addPage([612,792]);
-  page.drawText('0089033',{x,y,size,font});
-  const neighbor=direction==='horizontal'?'INVOICE':'REFERENCE';
-  if(direction==='horizontal') page.drawText(neighbor,{x:x+.14-font.widthOfTextAtSize(neighbor,size),y,size,font});
-  else page.drawText(neighbor,{x,y:y+(seedTarget.rect[3]-seedTarget.rect[1])-.14,size,font});
-  const source=await doc.save(), before=inspectPDF(source);
-  expect(findTargets(before,neighbor),'Regression source must contain its neighbor').toHaveLength(1);
-  const actual=findTargets(before,'0089033')[0];
-  const op={target:actual,replacement:'1000'};
-  const review=proposePDF(source,op);
-  const history=new History(source);
-  if(direction==='horizontal') {
-    expect(review.status).toBe('UNSUPPORTED');
-    expect(()=>applyPDF(history.current,op)).toThrow();
-    expect(history.current).toEqual(source);
-    expect(history.length).toBe(0);
-    return;
-  }
-  expect(review.status,review.message).toBe('SAFE_TO_APPLY');
-  const output=applyPDF(history.current,op);
-  history.commit(output.bytes);
-  expect(findTargets(output.model,neighbor),JSON.stringify({before:before.pages[0].lines.map(l=>l.text),after:output.model.pages[0].lines.map(l=>l.text)})).toHaveLength(1);
-  expect(findTargets(output.model,'0089033')).toHaveLength(0);
-  expect(findTargets(output.model,'1000')).toHaveLength(1);
-  expect(output.validation.outsidePixels).toBe(0);
-  expect(history.undo()).toEqual(source);
-});
+import { it, expect } from 'vitest';
+import { PDFDocument, StandardFonts } from 'pdf-lib';
+import { inspectPDF, proposePDF, applyPDF } from '../src/engine/pdf';
+import { findTargets, History } from '../src/engine/model';
+it.each(['horizontal', 'vertical'])(
+  'safely handles a barely touching %s neighbor during invoice-number redaction',
+  async (direction) => {
+    const size = 9.8,
+      x = 476,
+      y = 742;
+    const seedDoc = await PDFDocument.create(),
+      seedFont = await seedDoc.embedFont(StandardFonts.HelveticaBold);
+    seedDoc.addPage([612, 792]).drawText('4172048', { x, y, size, font: seedFont });
+    const seedTarget = findTargets(inspectPDF(await seedDoc.save()), '4172048')[0];
+    // Build a fresh document: pdf-lib caches serialized content streams after save.
+    const doc = await PDFDocument.create(),
+      font = await doc.embedFont(StandardFonts.HelveticaBold);
+    const page = doc.addPage([612, 792]);
+    page.drawText('4172048', { x, y, size, font });
+    const neighbor = direction === 'horizontal' ? 'INVOICE' : 'REFERENCE';
+    if (direction === 'horizontal')
+      page.drawText(neighbor, {
+        x: x + 0.14 - font.widthOfTextAtSize(neighbor, size),
+        y,
+        size,
+        font,
+      });
+    else
+      page.drawText(neighbor, {
+        x,
+        y: y + (seedTarget.rect[3] - seedTarget.rect[1]) - 0.14,
+        size,
+        font,
+      });
+    const source = await doc.save(),
+      before = inspectPDF(source);
+    expect(
+      findTargets(before, neighbor),
+      'Regression source must contain its neighbor',
+    ).toHaveLength(1);
+    const actual = findTargets(before, '4172048')[0];
+    const op = { target: actual, replacement: '1000' };
+    const review = proposePDF(source, op);
+    const history = new History(source);
+    if (direction === 'horizontal') {
+      expect(review.status).toBe('UNSUPPORTED');
+      expect(() => applyPDF(history.current, op)).toThrow();
+      expect(history.current).toEqual(source);
+      expect(history.length).toBe(0);
+      return;
+    }
+    expect(review.status, review.message).toBe('SAFE_TO_APPLY');
+    const output = applyPDF(history.current, op);
+    history.commit(output.bytes);
+    expect(
+      findTargets(output.model, neighbor),
+      JSON.stringify({
+        before: before.pages[0].lines.map((l) => l.text),
+        after: output.model.pages[0].lines.map((l) => l.text),
+      }),
+    ).toHaveLength(1);
+    expect(findTargets(output.model, '4172048')).toHaveLength(0);
+    expect(findTargets(output.model, '1000')).toHaveLength(1);
+    expect(output.validation.outsidePixels).toBe(0);
+    expect(history.undo()).toEqual(source);
+  },
+);

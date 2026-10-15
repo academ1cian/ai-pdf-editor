@@ -3,6 +3,12 @@ import { inspectPDF, proposePDF, applyPDF, renderPDF } from '../src/engine/pdf';
 import { findTargets } from '../src/engine/model';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { resolve } from 'node:path';
+import { setFallbackFont, type FontStyle } from '../src/engine/fonts';
+for (const style of ['Regular', 'Bold', 'Italic', 'BoldItalic'] as FontStyle[])
+  setFallbackFont(
+    new Uint8Array(readFileSync('src/assets/fonts/NotoSans-' + style + '.ttf')),
+    style,
+  );
 const fixtures = JSON.parse(readFileSync('tests/fixtures/manifest.json', 'utf8'));
 mkdirSync('tests/evidence', { recursive: true });
 const results = [];

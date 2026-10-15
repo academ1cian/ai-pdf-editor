@@ -27,9 +27,13 @@ import {
   Undo2,
   X,
 } from 'lucide-react';
+import { readImageFile, canvasImage, pngBytes } from './engine/image-input';
+import { reconstructWordmark } from './engine/logo';
+import type { ImageInstance, ImageOperation } from './engine/images';
 import { PDFClient } from './engine/client';
 import {
   findTargets,
+  union,
   targetFromRange,
   type BatchProposal,
   type Operation,
@@ -40,13 +44,33 @@ import {
 } from './engine/model';
 import { AIPlanSchema, type AIPlan } from './ai/schema';
 
-import { buildContext, type ContextBlock } from './ai/context';
-import { localInvoicePlan } from './ai/invoice-intent';
-import { validateAnalysis } from './ai/analysis';
+import { buildContext } from './ai/context';
+import {
+  localConversation,
+  mergeOperations,
+  syncPendingTotal,
+  undoRequest,
+  type ConversationTurn,
+} from './ai/conversation';
 import { resolvePlan } from './ai/resolve';
 
-type Preview = {id:string;sha256:string;model:DocumentModel;validation:Validation;operations:Operation[];proposals:Proposal[]};
-type Config = { enabled: boolean; siteKey?: string; reason?: string };
+type Preview = {
+  id: string;
+  sha256: string;
+  model: DocumentModel;
+  validation: Validation;
+  operations: Operation[];
+  images: ImageOperation[];
+  proposals: Proposal[];
+};
+type Config = {
+  enabled: boolean;
+  siteKey?: string;
+  reason?: string;
+  backupConfigured?: boolean;
+  imageEnabled?: boolean;
+  limits?: { dailyRequests: number; dailyTokens: number };
+};
 type Change = { original: string; replacement: string; page: number; transaction: number };
 type QueuedChange = Operation & { included: boolean; note?: string };
 declare global {
@@ -75,7 +99,7 @@ export default function App() {
   const fileInput = useRef<HTMLInputElement>(null);
   const viewer = useRef<HTMLDivElement>(null);
   const captcha = useRef<HTMLDivElement>(null);
-  const previewReview=useRef<HTMLElement>(null);
+  const previewReview = useRef<HTMLElement>(null);
   const captchaId = useRef<string | undefined>(undefined);
   const generation = useRef(0);
   const modal = useRef<HTMLElement>(null);
@@ -103,13 +127,56 @@ export default function App() {
     { line: string; start: number; end: number; x: number; y: number } | undefined
   >(undefined);
   const [tab, setTab] = useState<'manual' | 'ai'>('ai');
-  const [preview,setPreview]=useState<Preview>();
-  const [compareOriginal,setCompareOriginal]=useState(false);
-  useEffect(()=>{if(preview)previewReview.current?.scrollIntoView({block:'start'});},[preview]);
-  const [renderedSnapshot,setRenderedSnapshot]=useState('');
-  const [aiInterpretation,setAiInterpretation]=useState('');
-  const [aiAlternatives,setAiAlternatives]=useState<NonNullable<AIPlan['alternatives']>>([]);
+  const [preview, setPreview] = useState<Preview>();
+  const [compareOriginal, setCompareOriginal] = useState(false);
+  useEffect(() => {
+    if (preview) previewReview.current?.scrollIntoView({ block: 'start' });
+  }, [preview]);
+  const [renderedSnapshot, setRenderedSnapshot] = useState('');
+  const [aiInterpretation, setAiInterpretation] = useState('');
+  const [aiAlternatives, setAiAlternatives] = useState<NonNullable<AIPlan['alternatives']>>([]);
   const [instruction, setInstruction] = useState('');
+  const [turns, setTurns] = useState<ConversationTurn[]>([]);
+  const [editingTurn, setEditingTurn] = useState<number>();
+  const [pendingText, setPendingText] = useState<Record<string, string>>({});
+  const [selectedImage, setSelectedImage] = useState<ImageInstance>();
+  const [imageConsent, setImageConsent] = useState(false),
+    [imagePrompt, setImagePrompt] = useState(''),
+    [cloudImage, setCloudImage] = useState<Uint8Array>(),
+    [cloudImageURL, setCloudImageURL] = useState('');
+  const [useImageReference, setUseImageReference] = useState(true);
+  useEffect(() => {
+    setImageConsent(false);
+    setCloudImage(undefined);
+    setCloudImageURL('');
+    if (!selectedImage) return;
+    let stopped = false,
+      url = '';
+    void (async () => {
+      const bytes =
+          preview?.images.find((i) => i.target.id === selectedImage.id)?.bytes ||
+          (await getClient().request<Uint8Array>('extractImage', selectedImage)),
+        { canvas } = await canvasImage(bytes),
+        small = document.createElement('canvas'),
+        ratio = Math.min(1, 511 / canvas.width, 511 / canvas.height);
+      small.width = Math.max(1, Math.round(canvas.width * ratio));
+      small.height = Math.max(1, Math.round(canvas.height * ratio));
+      small.getContext('2d')!.drawImage(canvas, 0, 0, small.width, small.height);
+      const data = await pngBytes(small);
+      if (stopped) return;
+      setCloudImage(data);
+      url = URL.createObjectURL(new Blob([data.slice().buffer], { type: 'image/png' }));
+      setCloudImageURL(url);
+    })().catch((e) => {
+      if (!stopped) setError(e.message);
+    });
+    return () => {
+      stopped = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [selectedImage, preview?.id]);
+  const [logoOriginal, setLogoOriginal] = useState('');
+  const [logoReplacement, setLogoReplacement] = useState('');
   const [config, setConfig] = useState<Config>({
     enabled: false,
     reason: 'Checking AI availability…',
@@ -117,7 +184,9 @@ export default function App() {
   const [consent, setConsent] = useState(false);
   const [token, setToken] = useState('');
   const aiSession = useRef(sessionStorage.getItem('pdf-ai-session') || crypto.randomUUID());
-  useEffect(() => { sessionStorage.setItem('pdf-ai-session', aiSession.current); }, []);
+  useEffect(() => {
+    sessionStorage.setItem('pdf-ai-session', aiSession.current);
+  }, []);
   const [aiClarification, setAiClarification] = useState('');
   const [aiQuota, setAiQuota] = useState('');
   const [aiEdits, setAiEdits] = useState<AIPlan['edits']>([]);
@@ -178,7 +247,13 @@ export default function App() {
       );
   }, []);
   useEffect(() => {
-    if (tab !== 'ai' || !config.enabled || !config.siteKey || !captcha.current) return;
+    if (
+      tab !== 'ai' ||
+      (!config.enabled && !config.imageEnabled) ||
+      !config.siteKey ||
+      !captcha.current
+    )
+      return;
     let stopped = false;
     const setup = () => {
       if (stopped || !captcha.current || !window.turnstile) return;
@@ -209,11 +284,19 @@ export default function App() {
     };
   }, [tab, config]);
   const clearReview = () => {
+    setTurns([]);
+    setEditingTurn(undefined);
+    setInstruction('');
+    setPendingText({});
+    setSelectedImage(undefined);
+    setLogoOriginal('');
+    setLogoReplacement('');
     setProposal(undefined);
     setSelected(undefined);
     setAiEdits([]);
     setAiClarification('');
-    setAiInterpretation('');setAiAlternatives([]);
+    setAiInterpretation('');
+    setAiAlternatives([]);
     setDraftTargets([]);
     setPreview(undefined);
     setCompareOriginal(false);
@@ -271,13 +354,13 @@ export default function App() {
     let url = '';
     setRendering(true);
     setRenderedSnapshot('');
-    const snapshot=preview&&!compareOriginal?preview.id:'original';
+    const snapshot = preview && !compareOriginal ? preview.id : 'original';
     const version = generation.current;
     getClient()
       .request<{ png: Uint8Array }>('render', {
         page,
         scale: Math.min(2, scale * window.devicePixelRatio),
-        previewId: preview&&!compareOriginal?preview.id:undefined,
+        previewId: preview && !compareOriginal ? preview.id : undefined,
       })
       .then((result) => {
         if (cancelled || version !== generation.current) return;
@@ -285,7 +368,7 @@ export default function App() {
           new Blob([result.png.slice().buffer as ArrayBuffer], { type: 'image/png' }),
         );
         setImage(url);
-        setRenderedSnapshot(snapshot+':'+page);
+        setRenderedSnapshot(snapshot + ':' + page);
       })
       .catch((e) => {
         if (!cancelled) setError(e.message);
@@ -323,27 +406,13 @@ export default function App() {
     setBusy('Applying and validating all pages…');
     setError('');
     try {
-      const result = await getClient().request<{
-        model: DocumentModel;
-        validation: Validation;
-        edits: number;
-      }>('apply', proposal);
-      setModel(result.model);
-      setValidation(result.validation);
-      setChanges((c) => [
-        ...c,
-        {
-          original: proposal.target.original,
-          replacement: proposal.replacement,
-          page: proposal.target.page + 1,
-          transaction: result.edits,
-        },
-      ]);
-      setQuery('');
-      setQueue([]);
-      setBatchReview(undefined);
-      clearReview();
-      setNotice('Edit applied and export validated. Your original file is unchanged.');
+      await stageOperations(
+        mergeOperations(preview?.operations || [], [proposal]),
+        preview?.images || [],
+        'Manual text replacement',
+      );
+      setProposal(undefined);
+      setNotice('Manual change added to the complete preview. Approve once to download.');
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -396,85 +465,425 @@ export default function App() {
     const width = model.pages[page].bounds[2] - model.pages[page].bounds[0];
     setScale(Math.max(0.35, Math.min(1.6, (viewer.current.clientWidth - 100) / width)));
   };
-  const localPlan = model ? localInvoicePlan(buildContext(model,instruction,page),instruction) : undefined;
-  const useLocal = !!localPlan && !consent;
-  const askAI = async () => {
-    if (!model || busy || (!useLocal && (!consent || !config.enabled || !token))) return;
-    if(queue.length){setError('Apply or clear the manual change list before preparing an AI preview.');return;}
-    setPreview(undefined);setCompareOriginal(false);setRenderedSnapshot('');
-    setBusy('Preparing AI proposals…');
+  const pendingOperations = preview?.operations || [];
+  let localReady: boolean;
+  try {
+    localReady =
+      !!model &&
+      (undoRequest(instruction) || !!localConversation(model, pendingOperations, instruction));
+  } catch {
+    localReady = true;
+  }
+  const logoMatch = instruction.match(
+    /(?:логотипе|logo).*?(?:замени|replace|change)\s+(.+?)\s+(?:на|with|to)\s+(.+?)(?:,\s*(?:сохрани|preserv|keep).*)?[.!]?$/i,
+  );
+  const logoReference = /(?:логотип|logo|wordmark)/i.test(instruction);
+  const restoreLogo =
+    /(?:логотип.*(?:оставь|верни).*как был|(?:restore|keep).*original.*logo)/i.test(instruction);
+  const useLocal = (localReady || logoReference || restoreLogo) && !consent;
+  const stageOperations = async (
+    operations: Operation[],
+    images: ImageOperation[] = preview?.images || [],
+    manualRequest?: string,
+  ) => {
+    if (!model) return;
+    operations = syncPendingTotal(model, operations);
+    const recordManual = () => {
+      if (manualRequest)
+        setTurns((t) => [
+          ...t.slice(-29),
+          {
+            id: crypto.randomUUID(),
+            request: manualRequest,
+            summary: 'Manual refinement included in the complete pending preview.',
+            before: pendingOperations,
+            after: operations,
+            beforeImages: preview?.images || [],
+            afterImages: images,
+            revision: model.revision!,
+          },
+        ]);
+    };
+    if (!operations.length && !images.length) {
+      setPreview(undefined);
+      setRenderedSnapshot('');
+      await getClient().request('discardPreview');
+      recordManual();
+      return;
+    }
+    const result = await getClient().request<Preview>('previewBatch', { operations, images });
+    setPreview(result);
+    setCompareOriginal(false);
+    setRenderedSnapshot('');
+    setPendingText({});
+    setPage(operations[0]?.target.page ?? images[0].target.page);
+    recordManual();
+  };
+  const stageImage = async (op: ImageOperation) => {
+    if (busy) return;
+    setBusy('Editing and checking the image…');
     setError('');
     try {
-      const context = buildContext(model,instruction,page);
-      if(!context.length)throw new Error('This PDF has no selectable text. Scans need OCR before this editor can prepare changes.');
-      setAiEdits([]);
-      setAiClarification('');
-      setAiInterpretation('');setAiAlternatives([]);
-      if(useLocal && localPlan) {
-        const plan=validateAnalysis(localPlan,context,instruction);
-        setAiEdits(plan.edits);setAiClarification(plan.clarification||'');setAiInterpretation(plan.interpretation||'');setAiAlternatives([]);
-        setAiQuota('Interpreted on this device. No provider request or document text transmission.');
-        if(plan.edits.length)await preparePreview(plan,context);
-        setNotice(plan.edits.length?'Review the actual edited document, then Apply & Download.':plan.clarification||'No changes proposed.');
-        return;
-      }
-      const response = await fetch('/api/plan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ instruction, blocks: context, turnstileToken: token, sessionId: aiSession.current }),
-        signal: AbortSignal.timeout(35000),
-      });
-      const body = await response.json();
-      if (!response.ok)
-        throw new Error(
-          body.error || 'AI could not prepare a proposal. Manual editing remains available.',
-        );
-      const plan = AIPlanSchema.parse(body);
-      setAiEdits(plan.edits);
-      setAiClarification(plan.clarification || '');
-      setAiInterpretation(plan.interpretation||'');
-      setAiAlternatives(plan.alternatives||[]);
-      if(plan.edits.length)await preparePreview(plan,context);
-      const remaining=response.headers.get('X-AI-Remaining-Requests');
-      const globalRequests=response.headers.get('X-AI-Global-Requests-Used');
-      const globalTokens=response.headers.get('X-AI-Global-Tokens-Used');
-      setAiQuota((remaining && remaining!=='unknown' ? remaining+' requests remain in this session’s application allowance. ' : '')+(globalRequests && globalTokens ? 'Shared application usage today: '+globalRequests+'/80 requests and '+globalTokens+'/100,000 tokens. ' : '')+'Groq rate limits are separate.');
-      setNotice(
-        plan.edits.length
-          ? 'Review the actual edited document, then Apply & Download.'
-          : plan.clarification || 'No matching edit was proposed. Try a more specific instruction.',
+      await stageOperations(
+        pendingOperations,
+        [...(preview?.images || []).filter((i) => i.target.id !== op.target.id), op],
+        'Manual image ' + op.action,
       );
+      setNotice('Image included in the complete PDF preview.');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'AI is unavailable. Use manual editing.');
+      setError((e as Error).message + ' Previous validated preview preserved.');
+    } finally {
+      setBusy('');
+    }
+  };
+  const cloudImageEdit = async () => {
+    if (!model || !selectedImage || busy || !imageConsent || !token || !config.imageEnabled) return;
+    const r = selectedImage.rect,
+      b = model.pages[selectedImage.page].bounds;
+    if ((r[2] - r[0]) * (r[3] - r[1]) > (b[2] - b[0]) * (b[3] - b[1]) * 0.7) {
+      setError(
+        'Full-page document images cannot be sent to image AI. Use an uploaded cropped replacement or the local tools.',
+      );
+      return;
+    }
+    setBusy('Editing the selected image with Workers AI…');
+    setError('');
+    try {
+      if (useImageReference && !cloudImage)
+        throw new Error('The selected image preview is still loading.');
+      let encoded = '';
+      if (useImageReference && cloudImage) {
+        let binary = '';
+        for (let i = 0; i < cloudImage.length; i += 8192)
+          binary += String.fromCharCode(...cloudImage.subarray(i, i + 8192));
+        encoded = btoa(binary);
+      }
+      const response = await fetch('/api/image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: imagePrompt,
+            image: encoded || undefined,
+            consent: imageConsent,
+            turnstileToken: token,
+            sessionId: aiSession.current,
+            requestId: crypto.randomUUID(),
+          }),
+          signal: AbortSignal.timeout(55000),
+        }),
+        body = await response.json();
+      if (!response.ok) throw new Error(body.error || 'Image AI is unavailable.');
+      const raw = Uint8Array.from(atob(body.image), (c) => c.charCodeAt(0)),
+        { canvas } = await canvasImage(raw, raw[0] === 0xff ? 'image/jpeg' : 'image/png'),
+        bytes = await pngBytes(canvas),
+        ratio = Math.min((r[2] - r[0]) / canvas.width, (r[3] - r[1]) / canvas.height),
+        w = canvas.width * ratio,
+        h = canvas.height * ratio;
+      const op: ImageOperation = {
+        id: selectedImage.id,
+        target: selectedImage,
+        action: 'replace',
+        bytes,
+        rect: [
+          r[0] + (r[2] - r[0] - w) / 2,
+          r[1] + (r[3] - r[1] - h) / 2,
+          r[0] + (r[2] - r[0] + w) / 2,
+          r[1] + (r[3] - r[1] + h) / 2,
+        ],
+      };
+      await stageOperations(
+        pendingOperations,
+        [...(preview?.images || []).filter((i) => i.id !== op.id), op],
+        'Image AI: ' + imagePrompt,
+      );
+      setNotice('Image AI result is included in the real PDF preview. Inspect before approving.');
+    } catch (e) {
+      setError((e as Error).message + ' Your previous validated preview is preserved.');
     } finally {
       setBusy('');
       setToken('');
       if (captchaId.current) window.turnstile?.reset(captchaId.current);
     }
   };
-  const preparePreview=async(plan:AIPlan,context:ContextBlock[])=>{
-    if(!model)return;
-    const operations=resolvePlan(model,plan,context);
-    setBusy('Editing and checking a working copy…');
-    const result=await getClient().request<Preview>('previewBatch',operations);
-    setPreview(result);setCompareOriginal(false);setRenderedSnapshot('');
-    setPage(operations[0].target.page);
+  const logoChange = async (target: ImageInstance, original: string, replacement: string) => {
+    const prior = preview?.images.find((i) => i.target.id === target.id),
+      source = prior?.bytes || (await getClient().request<Uint8Array>('extractImage', target));
+    const effectiveOriginal =
+      prior?.wordmark?.original === original ? prior.wordmark.text : original;
+    const normalized = await getClient().request<Uint8Array>('normalizeImage', source),
+      edited = await reconstructWordmark(normalized, effectiveOriginal, replacement);
+    return {
+      id: target.id,
+      target,
+      action: 'replace' as const,
+      bytes: edited.bytes,
+      rect: prior?.rect || target.rect,
+      wordmark: {
+        rect: prior?.wordmark ? union([prior.wordmark.rect, edited.region]) : edited.region,
+        text: prior?.wordmark?.text.includes(original)
+          ? prior.wordmark.text.replace(original, replacement)
+          : replacement,
+        base: prior?.wordmark?.base || (prior?.bytes ? normalized : undefined),
+        wholeReplacement: prior?.wordmark?.wholeReplacement || !!(prior?.bytes && !prior.wordmark),
+        original: prior?.wordmark?.original || original,
+      },
+    };
   };
-  const approvePreview=async()=>{
-    if(!preview||busy||compareOriginal||renderedSnapshot!==preview.id+':'+page)return;
-    setBusy('Preparing your approved PDF…');setError('');
-    try{
-      const result=await getClient().request<{model:DocumentModel;validation:Validation;bytes:Uint8Array;edits:number}>('commitPreview',preview.id);
-      setModel(result.model);setValidation(result.validation);
-      setChanges(current=>[...current,...preview.operations.map(op=>({original:op.target.original,replacement:op.replacement,page:op.target.page+1,transaction:result.edits}))]);
-      setQueue([]);setBatchReview(undefined);clearReview();setQuery('');
-      save(result.bytes,name.replace(/\.pdf$/i,'')+'-edited.pdf');
+  const removePending = async (id: string) => {
+    if (busy || !model) return;
+    setBusy('Updating the complete preview…');
+    setError('');
+    try {
+      const next = syncPendingTotal(
+        model,
+        pendingOperations.filter((op) => op.target.id !== id),
+      );
+      await stageOperations(next);
+      setTurns((t) => [
+        ...t.slice(-29),
+        {
+          id: crypto.randomUUID(),
+          request: 'Remove selected change',
+          summary: 'Other pending changes retained.',
+          before: pendingOperations,
+          after: next,
+          beforeImages: preview?.images || [],
+          afterImages: preview?.images || [],
+          revision: model.revision!,
+        },
+      ]);
+    } catch (e) {
+      setError((e as Error).message + ' Previous validated preview preserved.');
+    } finally {
+      setBusy('');
+    }
+  };
+  const askAI = async () => {
+    if (!model || busy || (!useLocal && (!consent || !config.enabled || !token))) return;
+    const previous = editingTurn === undefined ? pendingOperations : turns[editingTurn].before;
+    const prefix = (editingTurn === undefined ? turns : turns.slice(0, editingTurn)).slice(-29);
+    const previousImages =
+      editingTurn === undefined ? preview?.images || [] : turns[editingTurn].beforeImages || [];
+    setBusy('Preparing your updated proposal…');
+    setError('');
+    try {
+      if (undoRequest(instruction)) {
+        if (!prefix.length) throw new Error('There is no pending request to undo.');
+        await stageOperations(prefix.at(-1)!.before, prefix.at(-1)!.beforeImages || []);
+        setTurns(prefix.slice(0, -1));
+        setInstruction('');
+        setEditingTurn(undefined);
+        setAiInterpretation('Latest request removed. Earlier pending changes retained.');
+        return;
+      }
+      if (logoReference && !logoMatch && !restoreLogo) {
+        setAiClarification(
+          'Enter the existing and replacement wording in Images & logos, or write “In the logo replace OLD with NEW”. Your current preview is preserved.',
+        );
+        return;
+      }
+      if (restoreLogo) {
+        const candidates = selectedImage
+          ? [selectedImage.id]
+          : previousImages.filter((i) => i.wordmark).map((i) => i.target.id);
+        if (!candidates.length && model.pages[page].images?.length === 1)
+          candidates.push(model.pages[page].images![0].id);
+        if (candidates.length !== 1)
+          throw new Error(
+            'Select the intended logo in Images & logos. Other image changes will be retained.',
+          );
+        const remaining = previousImages.filter((i) => i.target.id !== candidates[0]);
+        await stageOperations(previous, remaining);
+        setTurns([
+          ...prefix,
+          {
+            id: crypto.randomUUID(),
+            request: instruction,
+            summary: 'Original logo restored. Other image and text edits retained.',
+            before: previous,
+            after: previous,
+            beforeImages: previousImages,
+            afterImages: remaining,
+            revision: model.revision!,
+          },
+        ]);
+        setInstruction('');
+        setEditingTurn(undefined);
+        return;
+      }
+      if (logoMatch) {
+        const candidates = model.pages[page].images || [],
+          target = selectedImage || (candidates.length === 1 ? candidates[0] : undefined);
+        if (!target) throw new Error('Select the intended logo in Images & logos first.');
+        const op = await logoChange(target, logoMatch[1], logoMatch[2]);
+        await stageOperations(previous, [
+          ...previousImages.filter((i) => i.target.id !== target.id),
+          op,
+        ]);
+        setTurns([
+          ...prefix,
+          {
+            id: crypto.randomUUID(),
+            request: instruction,
+            summary: 'Reconstructed exact logo wording locally; emblem preserved.',
+            before: previous,
+            after: previous,
+            beforeImages: previousImages,
+            afterImages: [...previousImages.filter((i) => i.target.id !== target.id), op],
+            revision: model.revision!,
+          },
+        ]);
+        setInstruction('');
+        setEditingTurn(undefined);
+        return;
+      }
+      let operations: Operation[], summary: string;
+      const local = useLocal ? localConversation(model, previous, instruction) : undefined;
+      if (local) {
+        operations = local.operations;
+        summary = local.summary;
+        setAiQuota(
+          'Interpreted on this device. No provider request or document text transmission.',
+        );
+      } else {
+        const context = buildContext(model, instruction, page);
+        if (!context.length)
+          throw new Error(
+            'This request has no selectable text context. Use the image controls for bitmap content.',
+          );
+        const response = await fetch('/api/plan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            instruction,
+            blocks: context,
+            pending: previous
+              .map((op) => ({
+                original: op.target.original,
+                replacement: op.replacement.slice(0, 200),
+                page: op.target.page + 1,
+              }))
+              .slice(0, 40),
+            turnstileToken: token,
+            sessionId: aiSession.current,
+            requestId: crypto.randomUUID(),
+          }),
+          signal: AbortSignal.timeout(35000),
+        });
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.error || 'AI could not prepare this request.');
+        const plan = AIPlanSchema.parse(body);
+        if (!plan.edits.length) throw new Error(plan.clarification || 'No changes proposed.');
+        operations = mergeOperations(previous, resolvePlan(model, plan, context));
+        summary = plan.interpretation || 'Added the proposed changes.';
+        setAiEdits(plan.edits);
+        setAiAlternatives(plan.alternatives || []);
+        const limits = config.limits || { dailyRequests: 80, dailyTokens: 100000 };
+        const used = response.headers.get('X-AI-Global-Requests-Used'),
+          tokens = response.headers.get('X-AI-Global-Tokens-Used');
+        setAiQuota(
+          (used && tokens
+            ? 'Application usage: ' +
+              used +
+              '/' +
+              limits.dailyRequests +
+              ' requests; ' +
+              tokens +
+              '/' +
+              limits.dailyTokens +
+              ' tokens. '
+            : '') +
+            'Application day resets at midnight UTC. Groq organization limits are separate; provider token capacity is per minute.',
+        );
+      }
+      operations = syncPendingTotal(model, operations);
+      setBusy('Editing and checking the complete working copy…');
+      await stageOperations(operations, previousImages);
+      setTurns([
+        ...prefix,
+        {
+          id: crypto.randomUUID(),
+          request: instruction,
+          summary,
+          before: previous,
+          after: operations,
+          beforeImages: previousImages,
+          afterImages: previousImages,
+          revision: model.revision!,
+        },
+      ]);
+      setEditingTurn(undefined);
+      setInstruction('');
+      setAiInterpretation(summary);
+      setAiClarification('');
+      setNotice('Complete preview updated. Approve once to download all retained changes.');
+    } catch (e) {
+      setError(
+        (e as Error).message +
+          (preview
+            ? ' The newest request was not applied; your previous validated preview remains available.'
+            : ''),
+      );
+    } finally {
+      setBusy('');
+      setToken('');
+      if (captchaId.current) window.turnstile?.reset(captchaId.current);
+    }
+  };
+  const approvePreview = async () => {
+    if (!preview || busy || compareOriginal || renderedSnapshot !== preview.id + ':' + page) return;
+    setBusy('Preparing your approved PDF…');
+    setError('');
+    try {
+      const result = await getClient().request<{
+        model: DocumentModel;
+        validation: Validation;
+        bytes: Uint8Array;
+        edits: number;
+      }>('commitPreview', preview.id);
+      setModel(result.model);
+      setValidation(result.validation);
+      setChanges((current) => [
+        ...current,
+        ...preview.images.map((img) => ({
+          original: 'Image',
+          replacement: img.wordmark?.text || img.action,
+          page: img.target.page + 1,
+          transaction: result.edits,
+        })),
+        ...preview.operations.map((op) => ({
+          original: op.target.original,
+          replacement: op.replacement,
+          page: op.target.page + 1,
+          transaction: result.edits,
+        })),
+      ]);
+      setQueue([]);
+      setBatchReview(undefined);
+      clearReview();
+      setQuery('');
+      save(result.bytes, name.replace(/\.pdf$/i, '') + '-edited.pdf');
       setNotice('Approved PDF downloaded. One Undo restores all changes in this instruction.');
-    }catch(e){setError((e as Error).message);}finally{setBusy('');}
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy('');
+    }
   };
-  const discardPreview=()=>{
-    setPreview(undefined);setCompareOriginal(false);setAiEdits([]);setAiClarification('');setAiInterpretation('');setAiAlternatives([]);setRenderedSnapshot('');
-    void getClient().request('discardPreview').catch(()=>{});
+  const discardPreview = () => {
+    setInstruction(turns.at(-1)?.request || instruction);
+    setTurns([]);
+    setEditingTurn(undefined);
+    setPreview(undefined);
+    setCompareOriginal(false);
+    setAiEdits([]);
+    setAiClarification('');
+    setAiInterpretation('');
+    setAiAlternatives([]);
+    setRenderedSnapshot('');
+    void getClient()
+      .request('discardPreview')
+      .catch(() => {});
     setNotice('Preview discarded. Your document is unchanged.');
   };
 
@@ -506,7 +915,18 @@ export default function App() {
     patch: Partial<Pick<QueuedChange, 'replacement' | 'included'>>,
   ) => {
     setQueue((current) =>
-      current.map((item) => (item.target.id === id ? { ...item, ...patch, note: patch.replacement!==undefined ? 'Replacement was manually adjusted; review any dependent calculation again.' : item.note } : item)),
+      current.map((item) =>
+        item.target.id === id
+          ? {
+              ...item,
+              ...patch,
+              note:
+                patch.replacement !== undefined
+                  ? 'Replacement was manually adjusted; review any dependent calculation again.'
+                  : item.note,
+            }
+          : item,
+      ),
     );
     setBatchReview(undefined);
   };
@@ -537,29 +957,14 @@ export default function App() {
       const operations = queue
         .filter((item) => item.included)
         .map(({ target, replacement }) => ({ target, replacement }));
-      const result = await getClient().request<{
-        model: DocumentModel;
-        validation: Validation;
-        edits: number;
-      }>('applyBatch', operations);
-      setModel(result.model);
-      setValidation(result.validation);
-      setChanges((current) => [
-        ...current,
-        ...operations.map((op) => ({
-          original: op.target.original,
-          replacement: op.replacement,
-          page: op.target.page + 1,
-          transaction: result.edits,
-        })),
-      ]);
+      await stageOperations(
+        mergeOperations(pendingOperations, operations),
+        preview?.images || [],
+        'Manual batch refinement',
+      );
       setQueue([]);
       setBatchReview(undefined);
-      clearReview();
-      setQuery('');
-      setNotice(
-        `${operations.length} changes applied together and export validated. One Undo reverses the batch.`,
-      );
+      setNotice('Manual batch added to the complete preview. Approve once to download.');
     } catch (e) {
       setError((e as Error).message);
       setBatchReview(undefined);
@@ -667,7 +1072,7 @@ export default function App() {
       setBusy('');
     }
   };
-  const displayModel=preview&&!compareOriginal?preview.model:model;
+  const displayModel = preview && !compareOriginal ? preview.model : model;
   const currentPage = displayModel?.pages[page];
   const bounds = currentPage?.bounds;
   const pageWidth = bounds ? (bounds[2] - bounds[0]) * scale : 0;
@@ -676,8 +1081,8 @@ export default function App() {
     <div
       className="app"
       data-build-commit={BUILD_COMMIT}
-      data-preview-id={preview?.id||''}
-      data-preview-sha256={preview?.sha256||''}
+      data-preview-id={preview?.id || ''}
+      data-preview-sha256={preview?.sha256 || ''}
       data-rendered-snapshot={renderedSnapshot}
       onDragOver={(e) => {
         e.preventDefault();
@@ -819,9 +1224,19 @@ export default function App() {
                 >
                   Just looking? Try a sample document <ArrowRight size={14} />
                 </button>
-                <button className="sample-link" disabled={!!busy}
-                  onClick={() => void loadSample('/invoice-demo.pdf', 'sample-invoice.pdf')}>
+                <button
+                  className="sample-link"
+                  disabled={!!busy}
+                  onClick={() => void loadSample('/invoice-demo.pdf', 'sample-invoice.pdf')}
+                >
                   Try an invoice example <ArrowRight size={14} />
+                </button>
+                <button
+                  className="sample-link"
+                  disabled={!!busy}
+                  onClick={() => void loadSample('/mixed-demo.pdf', 'sample-text-logo.pdf')}
+                >
+                  Try a text &amp; logo example <ArrowRight size={14} />
                 </button>
                 <div className="trust-note">
                   <ShieldCheck size={15} />
@@ -861,7 +1276,11 @@ export default function App() {
                 role="region"
                 aria-label="PDF page canvas"
               >
-                <div className="page-paper" data-preview-revision={preview?.model.revision||''} style={{ width: pageWidth, height: pageHeight }}>
+                <div
+                  className="page-paper"
+                  data-preview-revision={preview?.model.revision || ''}
+                  style={{ width: pageWidth, height: pageHeight }}
+                >
                   {image && (
                     <img
                       src={image}
@@ -873,7 +1292,7 @@ export default function App() {
                   <div
                     className="text-layer"
                     aria-label={`Selectable text on page ${page + 1}`}
-                    style={{pointerEvents:preview?'none':undefined}}
+                    style={{ pointerEvents: preview ? 'none' : undefined }}
                     onMouseDown={(e) => {
                       const node = (e.target as HTMLElement).closest<HTMLElement>('[data-line-id]');
                       dragStart.current = node
@@ -897,7 +1316,7 @@ export default function App() {
                         tabIndex={busy || preview ? -1 : 0}
                         role="button"
                         aria-label={`Select text: ${line.text}`}
-                        aria-disabled={!!preview||!!busy}
+                        aria-disabled={!!preview || !!busy}
                         style={{
                           left: (line.rect[0] - (bounds?.[0] || 0)) * scale,
                           top: (line.rect[1] - (bounds?.[1] || 0)) * scale,
@@ -965,11 +1384,46 @@ export default function App() {
                       </span>
                     ))}
                   </div>
-                  {preview&&!compareOriginal&&preview.proposals.filter(p=>p.target.page===page).map((p,index)=>{
-                    const r=p.layoutRect||p.target.rect;
-                    return <div key={'preview'+index} className="preview-highlight" aria-label={'Changed region '+(index+1)}
-                      style={{left:(r[0]-(bounds?.[0]||0))*scale,top:(r[1]-(bounds?.[1]||0))*scale,width:(r[2]-r[0])*scale,height:(r[3]-r[1])*scale}}/>;
-                  })}
+                  {preview &&
+                    !compareOriginal &&
+                    preview.proposals
+                      .filter((p) => p.target.page === page)
+                      .map((p, index) => {
+                        const r = p.layoutRect || p.target.rect;
+                        return (
+                          <div
+                            key={'preview' + index}
+                            className="preview-highlight"
+                            aria-label={'Changed region ' + (index + 1)}
+                            style={{
+                              left: (r[0] - (bounds?.[0] || 0)) * scale,
+                              top: (r[1] - (bounds?.[1] || 0)) * scale,
+                              width: (r[2] - r[0]) * scale,
+                              height: (r[3] - r[1]) * scale,
+                            }}
+                          />
+                        );
+                      })}
+                  {preview &&
+                    !compareOriginal &&
+                    preview.images
+                      .filter((i) => i.target.page === page)
+                      .map((img, index) => {
+                        const r = img.rect || img.target.rect;
+                        return (
+                          <div
+                            key={'image-preview-' + img.id}
+                            className="preview-highlight image-highlight"
+                            aria-label={'Changed image ' + (index + 1)}
+                            style={{
+                              left: (r[0] - (bounds?.[0] || 0)) * scale,
+                              top: (r[1] - (bounds?.[1] || 0)) * scale,
+                              width: (r[2] - r[0]) * scale,
+                              height: (r[3] - r[1]) * scale,
+                            }}
+                          />
+                        );
+                      })}
                   {[
                     ...queue.map((item) => item.target),
                     ...(draftTargets.length ? draftTargets : selected ? [selected] : []),
@@ -1085,12 +1539,14 @@ export default function App() {
               role="tab"
               aria-selected={tab === 'manual'}
               className={tab === 'manual' ? 'active' : ''}
-              onClick={() => {if(preview)discardPreview();setTab('manual');}}
+              onClick={() => {
+                setTab('manual');
+                if (preview) setCompareOriginal(true);
+              }}
             >
               <Search size={14} />
               Find & replace
             </button>
-
           </div>
           <div className="panel-scroll" tabIndex={0} role="region" aria-label="Editing controls">
             {tab === 'manual' ? (
@@ -1166,7 +1622,8 @@ export default function App() {
                   }}
                 />
                 <p className="hint small">
-                  Nearby whitespace and up to 5% smaller type can help it fit. Empty text removes the selection.
+                  Nearby whitespace and up to 5% smaller type can help it fit. Empty text removes
+                  the selection.
                 </p>
                 <button
                   className="primary full"
@@ -1317,7 +1774,11 @@ export default function App() {
                     {batchReview && (
                       <p className="batch-summary" role="status">
                         {batchReview.message}
-                        {batchReview.operations.map((op,i)=><span key={op.target.id} style={{display:'block'}}>Change {i+1}: {op.message}</span>)}
+                        {batchReview.operations.map((op, i) => (
+                          <span key={op.target.id} style={{ display: 'block' }}>
+                            Change {i + 1}: {op.message}
+                          </span>
+                        ))}
                       </p>
                     )}
                     <button
@@ -1325,7 +1786,7 @@ export default function App() {
                       disabled={!!busy || batchReview?.status !== 'SAFE_TO_APPLY'}
                       onClick={applyBatch}
                     >
-                      <Check size={14} /> Apply all changes
+                      <Check size={14} /> Preview batch
                     </button>
                     <p className="hint small">
                       All included changes apply together, or none do. One Undo reverses the entire
@@ -1343,22 +1804,65 @@ export default function App() {
                 <p className="hint">
                   Describe your changes. Review the edited document, then approve and download.
                 </p>
-                <label htmlFor="instruction">What would you like to change?</label>
+                {turns.length > 0 && (
+                  <section className="conversation" aria-label="Conversation history">
+                    {turns.map((turn, index) => (
+                      <article key={turn.id}>
+                        <p>
+                          <strong>You</strong> {turn.request}
+                        </p>
+                        <p>{turn.summary}</p>
+                        <button
+                          className="text-button"
+                          disabled={!!busy}
+                          onClick={() => {
+                            setEditingTurn(index);
+                            setInstruction(turn.request);
+                          }}
+                        >
+                          Edit request {index + 1}
+                        </button>
+                      </article>
+                    ))}
+                  </section>
+                )}
+                {editingTurn !== undefined && (
+                  <p className="availability-callout">
+                    Editing request {editingTurn + 1}. Resubmitting replaces it and removes
+                    dependent later requests.
+                  </p>
+                )}
+                <label htmlFor="instruction">
+                  {turns.length ? 'Add or correct a request' : 'What would you like to change?'}
+                </label>
                 <textarea
                   id="instruction"
-                  placeholder={'e.g. Change the rate and charges to 1000 and update the total accordingly.'}
+                  placeholder={
+                    'e.g. Change the rate and charges to 1000 and update the total accordingly.'
+                  }
                   rows={5}
                   maxLength={1200}
                   value={instruction}
                   disabled={!model || !!busy}
-                  onChange={(e) => {if(preview)discardPreview();setInstruction(e.target.value);}}
+                  onChange={(e) => setInstruction(e.target.value)}
                 />
                 <div className={config.enabled ? 'privacy-callout' : 'availability-callout'}>
-                  {useLocal ? <><ShieldCheck size={16}/><span>This invoice request is interpreted on your device. No document text is sent. To use Groq instead, opt in below.</span></> : config.enabled ? (
+                  {useLocal ? (
                     <>
                       <ShieldCheck size={16} />
                       <span>
-                        Relevant extracted text, page positions, and label/value hints from selected document context (up to 50 lines, about 11,000 characters), plus your instruction, go to Groq. Context may include other pages. Your PDF stays here.
+                        This request is interpreted on your device. No document text is sent. To use
+                        Groq instead, opt in below.
+                      </span>
+                    </>
+                  ) : config.enabled ? (
+                    <>
+                      <ShieldCheck size={16} />
+                      <span>
+                        Relevant extracted text, page positions, and label/value hints from selected
+                        document context (up to 50 lines, about 11,000 characters), plus your
+                        instruction, go to Groq. Context may include other pages. Your PDF stays
+                        here.
                       </span>
                     </>
                   ) : (
@@ -1368,7 +1872,25 @@ export default function App() {
                     </>
                   )}
                 </div>
-                {config.enabled && model && <details className="hint"><summary>Preview text and layout sent to AI</summary><pre style={{whiteSpace:'pre-wrap',maxHeight:220,overflow:'auto'}}>{JSON.stringify(buildContext(model,instruction,page),null,2)}</pre></details>}
+                {config.enabled && model && (
+                  <details className="hint">
+                    <summary>Preview text and layout sent to AI</summary>
+                    <pre style={{ whiteSpace: 'pre-wrap', maxHeight: 220, overflow: 'auto' }}>
+                      {JSON.stringify(
+                        {
+                          blocks: buildContext(model, instruction, page),
+                          pending: pendingOperations.map((op) => ({
+                            original: op.target.original,
+                            replacement: op.replacement,
+                            page: op.target.page + 1,
+                          })),
+                        },
+                        null,
+                        2,
+                      )}
+                    </pre>
+                  </details>
+                )}
                 {config.enabled && (
                   <>
                     <label className="checkbox-label">
@@ -1382,6 +1904,9 @@ export default function App() {
                     <div ref={captcha} className="captcha" />
                   </>
                 )}
+                {!config.enabled && config.imageEnabled && (
+                  <div ref={captcha} className="captcha" />
+                )}
                 <button
                   className="primary full"
                   disabled={
@@ -1393,31 +1918,470 @@ export default function App() {
                   onClick={askAI}
                 >
                   <Sparkles size={15} />
-                  Preview changes
+                  {turns.length ? 'Update preview' : 'Preview changes'}
                 </button>
-                {aiClarification && <p className="availability-callout" role="status">{aiClarification} Revise the instruction above; no changes have been queued.</p>}
-                {aiQuota && <details className="hint"><summary>AI usage and limits</summary><p>{aiQuota}</p></details>}
-                {aiInterpretation&&<p className="hint">{aiInterpretation}</p>}
-                {aiAlternatives.map(alternative=><button className="text-button" key={alternative.label} disabled={!!busy} onClick={()=>{discardPreview();setInstruction(alternative.instruction);}}>{alternative.label}</button>)}
-                {preview&&<section ref={previewReview} className="preview-review" aria-label="Edited document preview">
-                  <h2>Review your edited document</h2>
-                  <p className="hint">{preview.operations.length} changes prepared on a working copy. Your document stays unchanged until approval.</p>
-                  <div className="preview-compare">
-                    <button className={'secondary '+(!compareOriginal?'active':'')} aria-pressed={!compareOriginal} disabled={!!busy} onClick={()=>setCompareOriginal(false)}>Edited preview</button>
-                    <button className={'secondary '+(compareOriginal?'active':'')} aria-pressed={compareOriginal} disabled={!!busy} onClick={()=>setCompareOriginal(true)}>Original</button>
-                  </div>
-                  <div className="row-actions">{[...new Set(preview.operations.map(op=>op.target.page))].map(p=><button className="text-button" key={p} disabled={!!busy} onClick={()=>setPage(p)}>Page {p+1}</button>)}</div>
-                  <details><summary>Review changes and calculations</summary>{aiEdits.map(edit=><div className="ai-proposal" key={edit.id}>
-                    <span className="micro-label">PAGE {edit.page} · {edit.label||'Text correction'}</span>
-                    <del>{edit.original}</del><ins>{edit.replacement||'(remove text)'}</ins><p>{edit.explanation}</p>
-                  </div>)}</details>
-                  {preview.proposals.some(p=>p.fitting==='typography'||p.fitting==='whitespace')&&<p className="hint">Some text uses adjacent empty space or a small type adjustment. Inspect the highlighted result before approving.</p>}
-                  <details className="hint"><summary>Advanced layout and integrity checks</summary>{preview.proposals.map(p=><p key={p.target.id}>{p.message}</p>)}<p>{preview.validation.checks.join('. ')}</p></details>
-                  <button className="primary full" disabled={!!busy||compareOriginal||rendering||renderedSnapshot!==preview.id+':'+page} onClick={approvePreview}><Check size={15}/>Apply &amp; Download</button>
-                  <div className="row-actions"><button className="text-button" disabled={!!busy} onClick={()=>{discardPreview();document.getElementById('instruction')?.focus();}}>Revise instruction</button><button className="text-button" disabled={!!busy} onClick={discardPreview}>Discard preview</button></div>
-                </section>}
-
+                {aiClarification && (
+                  <p className="availability-callout" role="status">
+                    {aiClarification} Revise the instruction above; no changes have been queued.
+                  </p>
+                )}
+                {config.backupConfigured && (
+                  <p className="hint small">
+                    Standby credential configured. Organization quotas are shared; it is used only
+                    if primary authentication fails.
+                  </p>
+                )}
+                {aiQuota && (
+                  <details className="hint">
+                    <summary>AI usage and limits</summary>
+                    <p>{aiQuota}</p>
+                  </details>
+                )}
+                {aiInterpretation && <p className="hint">{aiInterpretation}</p>}
+                {aiAlternatives.map((alternative) => (
+                  <button
+                    className="text-button"
+                    key={alternative.label}
+                    disabled={!!busy}
+                    onClick={() => {
+                      discardPreview();
+                      setInstruction(alternative.instruction);
+                    }}
+                  >
+                    {alternative.label}
+                  </button>
+                ))}
               </>
+            )}
+            {model && (
+              <details className="image-tools">
+                <summary>
+                  Images &amp; logos ({model.pages[page].images?.length || 0} on this page)
+                </summary>
+                <p className="hint">
+                  Bitmap text is part of an image. Select an occurrence to replace or reconstruct it
+                  locally.
+                </p>
+                {(model.pages[page].images || []).map((img, i) => (
+                  <button
+                    className="secondary full"
+                    key={img.id}
+                    aria-pressed={selectedImage?.id === img.id}
+                    disabled={!!busy}
+                    onClick={() => setSelectedImage(img)}
+                  >
+                    Select image {i + 1} ({img.width} × {img.height})
+                  </button>
+                ))}
+                {selectedImage && (
+                  <section aria-label="Selected image controls">
+                    <p>
+                      Selected image on page {selectedImage.page + 1}. Replacement preserves drawing
+                      order and clipping.
+                    </p>
+                    {cloudImageURL && (
+                      <img
+                        src={cloudImageURL}
+                        alt="Selected image crop"
+                        style={{ maxWidth: '100%', maxHeight: 160, objectFit: 'contain' }}
+                      />
+                    )}
+                    <label>
+                      Upload replacement image
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/svg+xml"
+                        disabled={!!busy}
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          e.target.value = '';
+                          if (!file) return;
+                          try {
+                            const bytes = await readImageFile(file);
+                            const bitmap = await createImageBitmap(
+                                new Blob([bytes.slice().buffer], { type: 'image/png' }),
+                              ),
+                              old = selectedImage.rect,
+                              w = old[2] - old[0],
+                              h = old[3] - old[1],
+                              ratio = Math.min(w / bitmap.width, h / bitmap.height),
+                              nw = bitmap.width * ratio,
+                              nh = bitmap.height * ratio;
+                            bitmap.close();
+                            await stageImage({
+                              id: selectedImage.id,
+                              target: selectedImage,
+                              action: 'replace',
+                              bytes,
+                              rect: [
+                                old[0] + (w - nw) / 2,
+                                old[1] + (h - nh) / 2,
+                                old[0] + (w + nw) / 2,
+                                old[1] + (h + nh) / 2,
+                              ],
+                            });
+                          } catch (e) {
+                            setError((e as Error).message);
+                          }
+                        }}
+                      />
+                    </label>
+                    <div className="row-actions">
+                      {[
+                        ['Left', -12, 0],
+                        ['Right', 12, 0],
+                        ['Up', 0, -12],
+                        ['Down', 0, 12],
+                      ].map(([label, x, y]) => (
+                        <button
+                          className="secondary"
+                          key={String(label)}
+                          disabled={!!busy}
+                          onClick={() => {
+                            const current = preview?.images.find(
+                                (i) => i.target.id === selectedImage.id,
+                              ),
+                              r = current?.rect || selectedImage.rect;
+                            void stageImage({
+                              ...current,
+                              id: selectedImage.id,
+                              target: selectedImage,
+                              action: current?.action || 'place',
+                              rect: [
+                                r[0] + Number(x),
+                                r[1] + Number(y),
+                                r[2] + Number(x),
+                                r[3] + Number(y),
+                              ],
+                            });
+                          }}
+                        >
+                          Move {label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="row-actions">
+                      {[0.9, 1.1].map((factor) => (
+                        <button
+                          className="secondary"
+                          key={factor}
+                          disabled={!!busy}
+                          onClick={() => {
+                            const current = preview?.images.find(
+                                (i) => i.target.id === selectedImage.id,
+                              ),
+                              r = current?.rect || selectedImage.rect;
+                            void stageImage({
+                              ...current,
+                              id: selectedImage.id,
+                              target: selectedImage,
+                              action: current?.action || 'place',
+                              rect: [
+                                r[0],
+                                r[1],
+                                r[0] + (r[2] - r[0]) * factor,
+                                r[1] + (r[3] - r[1]) * factor,
+                              ],
+                            });
+                          }}
+                        >
+                          Resize {factor < 1 ? 'smaller' : 'larger'}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      className="text-button"
+                      disabled={!!busy}
+                      onClick={() =>
+                        stageImage({
+                          id: selectedImage.id,
+                          target: selectedImage,
+                          action: 'remove',
+                        })
+                      }
+                    >
+                      Remove image
+                    </button>
+                    <label htmlFor="logo-original">Existing logo wording</label>
+                    <input
+                      id="logo-original"
+                      value={logoOriginal}
+                      onChange={(e) => setLogoOriginal(e.target.value)}
+                    />
+                    <label htmlFor="logo-replacement">Exact replacement wording</label>
+                    <input
+                      id="logo-replacement"
+                      value={logoReplacement}
+                      onChange={(e) => setLogoReplacement(e.target.value)}
+                    />
+                    <button
+                      className="secondary full"
+                      disabled={!!busy || !logoOriginal || !logoReplacement}
+                      onClick={async () => {
+                        setBusy('Locating and reconstructing the wordmark locally…');
+                        setError('');
+                        try {
+                          const op = await logoChange(selectedImage, logoOriginal, logoReplacement);
+                          await stageOperations(
+                            pendingOperations,
+                            [
+                              ...(preview?.images || []).filter(
+                                (i) => i.target.id !== selectedImage.id,
+                              ),
+                              op,
+                            ],
+                            'Exact logo wording: ' + logoOriginal + ' → ' + logoReplacement,
+                          );
+                        } catch (e) {
+                          setError((e as Error).message + ' Previous preview preserved.');
+                        } finally {
+                          setBusy('');
+                        }
+                      }}
+                    >
+                      Preview exact logo wording
+                    </button>
+                    <details>
+                      <summary>Optional free image AI</summary>
+                      <p className="hint">
+                        {config.imageEnabled
+                          ? 'Cloudflare Workers AI is available with a separate bounded image allowance.'
+                          : 'Free image AI is unavailable on this installation. Uploads and local logo reconstruction still work.'}
+                      </p>
+                      <label htmlFor="image-prompt">Describe the image change</label>
+                      <textarea
+                        id="image-prompt"
+                        rows={3}
+                        maxLength={800}
+                        value={imagePrompt}
+                        disabled={!!busy}
+                        onChange={(e) => setImagePrompt(e.target.value)}
+                      />
+                      <label className="checkbox-label">
+                        <input
+                          type="checkbox"
+                          checked={useImageReference}
+                          onChange={(e) => {
+                            setUseImageReference(e.target.checked);
+                            setImageConsent(false);
+                          }}
+                        />
+                        Use the displayed selected image as a reference (uncheck to generate a new
+                        illustration)
+                      </label>
+                      <label className="checkbox-label">
+                        <input
+                          type="checkbox"
+                          checked={imageConsent}
+                          onChange={(e) => setImageConsent(e.target.checked)}
+                        />
+                        I agree to send the displayed selected image and this prompt to Cloudflare
+                        Workers AI.
+                      </label>
+                      <button
+                        className="secondary full"
+                        disabled={
+                          !!busy ||
+                          !config.imageEnabled ||
+                          !imageConsent ||
+                          !token ||
+                          imagePrompt.trim().length < 3
+                        }
+                        onClick={cloudImageEdit}
+                      >
+                        Preview AI image edit
+                      </button>
+                      <p className="hint">
+                        Verification appears in the AI assistant tab. Model lettering may be
+                        inaccurate; use exact local wording for wordmarks. No paid fallback.
+                      </p>
+                    </details>
+                    <p className="hint">
+                      Local OCR locates the old wording; its pixels are removed from the bitmap
+                      before exact lettering is drawn. Uniform backgrounds only. Inspect spelling
+                      and typography in the real PDF preview.
+                    </p>
+                  </section>
+                )}
+              </details>
+            )}
+            {preview && (
+              <section
+                ref={previewReview}
+                className="preview-review"
+                aria-label="Edited document preview"
+              >
+                <h2>Review your edited document</h2>
+                <p className="hint">
+                  {preview.operations.length + preview.images.length} changes prepared on a working
+                  copy. Your document stays unchanged until approval.
+                </p>
+                <div className="preview-compare">
+                  <button
+                    className={'secondary ' + (!compareOriginal ? 'active' : '')}
+                    aria-pressed={!compareOriginal}
+                    disabled={!!busy}
+                    onClick={() => setCompareOriginal(false)}
+                  >
+                    Edited preview
+                  </button>
+                  <button
+                    className={'secondary ' + (compareOriginal ? 'active' : '')}
+                    aria-pressed={compareOriginal}
+                    disabled={!!busy}
+                    onClick={() => setCompareOriginal(true)}
+                  >
+                    Original
+                  </button>
+                </div>
+                <div className="row-actions">
+                  {[
+                    ...new Set(
+                      [...preview.operations, ...preview.images].map((op) => op.target.page),
+                    ),
+                  ].map((p) => (
+                    <button
+                      className="text-button"
+                      key={p}
+                      disabled={!!busy}
+                      onClick={() => setPage(p)}
+                    >
+                      Page {p + 1}
+                    </button>
+                  ))}
+                </div>
+                <details open>
+                  <summary>Review changes and calculations</summary>
+                  {preview.images.map((img, index) => (
+                    <div className="ai-proposal" key={img.id}>
+                      <strong>
+                        Image {index + 1}, page {img.target.page + 1}
+                      </strong>
+                      <p>
+                        {img.action === 'remove'
+                          ? 'Remove selected occurrence'
+                          : img.wordmark
+                            ? 'Exact wordmark: ' + img.wordmark.text
+                            : img.action === 'place'
+                              ? 'Move or resize selected occurrence'
+                              : 'Replace selected occurrence'}
+                      </p>
+                      <button
+                        className="text-button"
+                        disabled={!!busy}
+                        onClick={async () => {
+                          setBusy('Restoring the selected image…');
+                          try {
+                            await stageOperations(
+                              preview.operations,
+                              preview.images.filter((i) => i.id !== img.id),
+                              'Restore selected original image',
+                            );
+                          } catch (e) {
+                            setError((e as Error).message);
+                          } finally {
+                            setBusy('');
+                          }
+                        }}
+                      >
+                        Restore image {index + 1}
+                      </button>
+                    </div>
+                  ))}
+                  {preview.operations.map((op, index) => (
+                    <div className="ai-proposal" key={op.target.id}>
+                      <span className="micro-label">
+                        PAGE {op.target.page + 1} · Change {index + 1}
+                      </span>
+                      <del>{op.target.original}</del>
+                      <ins>{op.replacement || '(remove text)'}</ins>
+                      <label htmlFor={'pending-' + index}>Adjust pending change {index + 1}</label>
+                      <textarea
+                        id={'pending-' + index}
+                        rows={2}
+                        value={pendingText[op.target.id] ?? op.replacement}
+                        disabled={!!busy}
+                        onChange={(e) =>
+                          setPendingText({ ...pendingText, [op.target.id]: e.target.value })
+                        }
+                      />
+                      <button
+                        className="text-button"
+                        disabled={!!busy}
+                        onClick={async () => {
+                          setBusy('Checking manual refinement…');
+                          try {
+                            await stageOperations(
+                              mergeOperations(preview.operations, [
+                                { ...op, replacement: pendingText[op.target.id] ?? op.replacement },
+                              ]),
+                              preview.images,
+                              'Adjust pending text change',
+                            );
+                          } catch (e) {
+                            setError((e as Error).message + ' Previous preview preserved.');
+                          } finally {
+                            setBusy('');
+                          }
+                        }}
+                      >
+                        Preview adjustment {index + 1}
+                      </button>
+                      <button
+                        className="text-button"
+                        disabled={!!busy}
+                        onClick={() => removePending(op.target.id)}
+                      >
+                        Remove change {index + 1}
+                      </button>
+                      <p>{aiEdits.find((e) => e.original === op.target.original)?.explanation}</p>
+                    </div>
+                  ))}
+                </details>
+                {preview.proposals.some(
+                  (p) => p.fitting === 'typography' || p.fitting === 'whitespace',
+                ) && (
+                  <p className="hint">
+                    Some text uses adjacent empty space or a small type adjustment. Inspect the
+                    highlighted result before approving.
+                  </p>
+                )}
+                <details className="hint">
+                  <summary>Advanced layout and integrity checks</summary>
+                  {preview.proposals.map((p) => (
+                    <p key={p.target.id}>{p.message}</p>
+                  ))}
+                  <p>{preview.validation.checks.join('. ')}</p>
+                </details>
+                <button
+                  className="primary full"
+                  disabled={
+                    !!busy ||
+                    compareOriginal ||
+                    rendering ||
+                    renderedSnapshot !== preview.id + ':' + page
+                  }
+                  onClick={approvePreview}
+                >
+                  <Check size={15} />
+                  Apply &amp; Download
+                </button>
+                <div className="row-actions">
+                  <button
+                    className="text-button"
+                    disabled={!!busy}
+                    onClick={() => {
+                      setTab('ai');
+                      document.getElementById('instruction')?.focus();
+                    }}
+                  >
+                    Add a follow-up
+                  </button>
+                  <button className="text-button" disabled={!!busy} onClick={discardPreview}>
+                    Discard preview
+                  </button>
+                </div>
+              </section>
             )}
             {proposal && (
               <div
@@ -1440,11 +2404,25 @@ export default function App() {
                   <span>
                     <ArrowDownToLine size={14} />
                   </span>
-                  <ins style={{fontFamily:proposal.font?.startsWith('Times')?'Times New Roman, serif':proposal.font?.startsWith('Courier')?'Courier New, monospace':'Arial, sans-serif',fontSize:proposal.size?proposal.size+'pt':undefined,fontWeight:proposal.font?.includes('Bold')?700:400,fontStyle:/Italic|Oblique/.test(proposal.font||'')?'italic':'normal'}}>{proposal.replacement || '(remove text)'}</ins>
+                  <ins
+                    style={{
+                      fontFamily: proposal.font?.startsWith('Times')
+                        ? 'Times New Roman, serif'
+                        : proposal.font?.startsWith('Courier')
+                          ? 'Courier New, monospace'
+                          : 'Arial, sans-serif',
+                      fontSize: proposal.size ? proposal.size + 'pt' : undefined,
+                      fontWeight: proposal.font?.includes('Bold') ? 700 : 400,
+                      fontStyle: /Italic|Oblique/.test(proposal.font || '') ? 'italic' : 'normal',
+                    }}
+                  >
+                    {proposal.replacement || '(remove text)'}
+                  </ins>
                 </div>
                 {proposal.font && (
                   <p className="font-note">
-                    {proposal.font} · {proposal.size?.toFixed(1)} pt · no substitution
+                    {proposal.font} · {proposal.size?.toFixed(1)} pt ·{' '}
+                    {proposal.embedded ? 'embedded replacement font' : 'original font'}
                   </p>
                 )}
                 <p className="review-message">{proposal.message}</p>
@@ -1455,7 +2433,7 @@ export default function App() {
                     onClick={apply}
                   >
                     <Check size={15} />
-                    Apply change
+                    Preview change
                   </button>
                   <button
                     className="text-button"
@@ -1474,7 +2452,7 @@ export default function App() {
                   <strong>Export validated</strong>
                 </div>
                 <p>
-                  Reopened successfully. Text replaced. {validation.checkedPages}{' '}
+                  Reopened successfully. Requested edits verified. {validation.checkedPages}{' '}
                   {validation.checkedPages === 1 ? 'page' : 'pages'} compared; no unexpected visual
                   changes at 108 dpi.
                 </p>
@@ -1549,8 +2527,8 @@ export default function App() {
                 Built for careful corrections.
                 <br />
                 <span>
-                  Standard PDF fonts and short Latin text on each original line. Embedded fonts and scans are
-                  view-only.
+                  Measured whitespace, readable wrapping, and embedded Noto Sans for supported
+                  Unicode. Bitmap content uses the image tools.
                 </span>
               </p>
             </div>
@@ -1623,15 +2601,17 @@ export default function App() {
             </p>
             <p>
               AI is optional. When configured, your instruction and a limited amount of extracted
-              text and layout hints from relevant pages are sent through Cloudflare to Groq, only with your
-              consent. Cloudflare Turnstile checks for abuse. Never send sensitive content you are
-              not authorized to share.
+              text and layout hints from relevant pages are sent through Cloudflare to Groq, only
+              with your consent. Cloudflare Turnstile checks for abuse. Never send sensitive content
+              you are not authorized to share.
             </p>
             <p>
-              This version replaces printable Latin ASCII text with bounded whitespace expansion and up to 5% type reduction, in standard Helvetica,
-              Times, and Courier PDF fonts. Fitting uses measured local whitespace and up to 5% smaller type; neighboring text never moves. Scans, custom
-              or embedded fonts, forms, signed, encrypted, tagged, rotated, clipped, and complex
-              documents may be unsupported.
+              Text fitting measures both directions, can wrap and move connected paragraph lines,
+              and retains readable typography. Supported Unicode uses embedded Noto Sans. Image
+              uploads and exact wordmark reconstruction run locally; optional image AI sends only
+              the displayed selected image with separate consent. Complex embedded fonts, forms,
+              signatures, encrypted files, arbitrary row reconstruction and pagination may be
+              unsupported.
             </p>
             <p>
               Validation checks text, page features, and rendered pixels at 108 dpi with a small
